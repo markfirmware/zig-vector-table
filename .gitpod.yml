@@ -1,0 +1,6 @@
+tasks:
+  - name: zig build qemu
+    init: ./update-zig.sh
+    command: export PATH=./zig:$PATH && zig build qemu
+image:
+  file: .gitpod.Dockerfile

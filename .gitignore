@@ -1,0 +1,5 @@
+generated-linker.ld
+main.asm
+main.hex
+zig/
+zig-cache/
