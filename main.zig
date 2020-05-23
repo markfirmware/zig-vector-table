@@ -7,7 +7,7 @@ export var vector_table linksection(".vector_table") = packed struct {
 }{};
 
 fn reset() callconv(.C) noreturn {
-    model.linked.prepareMemory();
+    @import("generated_prepare_memory.zig").prepareMemory();
     Uart.prepare();
     Timers[0].prepare();
     Terminal.clearScreen();
@@ -263,25 +263,20 @@ pub const Terminal = struct {
     pub fn attribute(n: u32) void {
         pair(n, 0, "m");
     }
-
     pub fn clearScreen() void {
         pair(2, 0, "J");
     }
-
     pub fn hideCursor() void {
         Uart.writeText(csi ++ "?25l");
     }
-
     pub fn line(comptime fmt: []const u8, args: var) void {
         print(fmt, args);
         pair(0, 0, "K");
         Uart.writeText("\n");
     }
-
     pub fn move(row: u32, column: u32) void {
         pair(row, column, "H");
     }
-
     pub fn pair(a: u32, b: u32, letter: []const u8) void {
         if (a <= 1 and b <= 1) {
             print("{}{}", .{ csi, letter });
@@ -293,39 +288,30 @@ pub const Terminal = struct {
             print("{}{};{}{}", .{ csi, a, b, letter });
         }
     }
-
     pub fn requestCursorPosition() void {
         Uart.writeText(csi ++ "6n");
     }
-
     pub fn requestDeviceCode() void {
         Uart.writeText(csi ++ "c");
     }
-
     pub fn reset() void {
         Uart.writeText("\x1bc");
     }
-
     pub fn restoreCursorAndAttributes() void {
         Uart.writeText("\x1b8");
     }
-
     pub fn saveCursorAndAttributes() void {
         Uart.writeText("\x1b7");
     }
-
     pub fn setLineWrap(enabled: bool) void {
         pair(0, 0, if (enabled) "7h" else "7l");
     }
-
     pub fn setScrollingRegion(top: u32, bottom: u32) void {
         pair(top, bottom, "r");
     }
-
     pub fn showCursor() void {
         Uart.writeText(csi ++ "?25h");
     }
-
     const csi = "\x1b[";
 };
 
@@ -338,23 +324,19 @@ pub const TimeKeeper = struct {
         Timers[0].tasks.capture[0].do();
         return Timers[0].registers.capture_compare[0].read();
     }
-
     fn elapsed(self: *TimeKeeper) u32 {
         return self.capture() -% self.start_time;
     }
-
     fn ofMilliseconds(ms: u32) TimeKeeper {
         var t: TimeKeeper = undefined;
         t.prepare(1000 * ms);
         return t;
     }
-
     fn prepare(self: *TimeKeeper, duration: u32) void {
         self.duration = duration;
         self.max_elapsed = 0;
         self.reset();
     }
-
     fn isFinishedThenReset(self: *TimeKeeper) bool {
         const since = self.elapsed();
         if (since >= self.duration) {
@@ -367,15 +349,12 @@ pub const TimeKeeper = struct {
             return false;
         }
     }
-
     fn reset(self: *TimeKeeper) void {
         self.start_time = self.capture();
     }
-
     fn wait(self: *TimeKeeper) void {
         while (!self.isFinishedThenReset()) {}
     }
-
     pub fn delay(duration: u32) void {
         var time_keeper: TimeKeeper = undefined;
         time_keeper.prepare(duration);

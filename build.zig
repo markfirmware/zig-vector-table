@@ -1,16 +1,15 @@
 pub fn build(b: *std.build.Builder) !void {
     const display_option = b.option(bool, "display", "graphics display for qemu") orelse false;
-    const exe = b.addExecutable("main", "main.zig");
-    exe.install();
-    exe.setBuildMode(b.standardReleaseOptions());
-    exe.setLinkerScriptPath(GenerateLinkerScriptStep.file_name);
-    exe.setTarget(model.target);
-    exe.link_function_sections = true;
-    const fmt = b.addFmt(&[_][]const u8{ "build.zig", "main.zig" });
-    const generate = addCustomStep(b, GenerateLinkerScriptStep{});
-    const install_raw = b.addInstallRaw(exe, "main.img");
-    const run_make_hex = addCustomStep(b, MakeHexStep{ .input_name = "zig-cache/bin/main.img", .output_name = "main.hex" });
-    const make_hex = b.step("make-hex", "make hex file to copy to device");
+    const build_exe = b.addExecutable("main", "main.zig");
+    build_exe.install();
+    build_exe.setBuildMode(b.standardReleaseOptions());
+    build_exe.setLinkerScriptPath(Linker.script_file_name);
+    build_exe.setTarget(model.target);
+    build_exe.link_function_sections = true;
+    const format_source = b.addFmt(&[_][]const u8{ "build.zig", "main.zig" });
+    const generate_linker_files = addCustomStep(b, GenerateLinkerFiles{});
+    const install_raw = b.addInstallRaw(build_exe, "main.img");
+    const make_hex_file = addCustomStep(b, MakeHexStep{ .input_name = "zig-cache/bin/main.img", .output_name = "main.hex" });
     const run_qemu = b.addSystemCommand(&[_][]const u8{
         "qemu-system-arm",
         "-kernel",
@@ -22,56 +21,39 @@ pub fn build(b: *std.build.Builder) !void {
         "-display",
         if (display_option) "gtk" else "none",
     });
-    const qemu = b.step("qemu", "run in qemu");
 
-    exe.step.dependOn(&generate.step);
-    generate.step.dependOn(&fmt.step);
-    install_raw.step.dependOn(&exe.step);
-    run_make_hex.step.dependOn(&install_raw.step);
-    make_hex.dependOn(&run_make_hex.step);
-    run_qemu.step.dependOn(&install_raw.step);
-    qemu.dependOn(&run_qemu.step);
-    b.default_step.dependOn(&exe.step);
+    declareDependencies: {
+        build_exe.step.dependOn(&format_source.step);
+        build_exe.step.dependOn(&generate_linker_files.step);
+        install_raw.step.dependOn(&build_exe.step);
+        make_hex_file.step.dependOn(&install_raw.step);
+        run_qemu.step.dependOn(&install_raw.step);
+    }
+
+    declareCommandLineSteps: {
+        b.step("make-hex", "make hex file to copy to device").dependOn(&make_hex_file.step);
+        b.step("qemu", "run in qemu").dependOn(&run_qemu.step);
+        b.default_step.dependOn(&build_exe.step);
+    }
 }
 
 pub const model = struct {
-    pub const flash = MemoryRegion{
-        .name = "flash",
-        .access = "rx",
-        .start = 0,
-        .size = 256 * 1024,
-        .sections = &[_]MemoryRegion.Section{
-            .{ .pattern = ".vector_table*", .keep = true },
-            .{ .pattern = ".text*" },
-            .{ .pattern = ".rodata*" },
-        },
-    };
-    pub const flash_then_ram = MemoryRegion{
-        .name = "flash_then_ram",
-        .source = &flash,
-        .destination = &ram,
-        .sections = &[_]MemoryRegion.Section{
-            .{ .pattern = ".data*", .externs_prefix = "__data_" },
-        },
-    };
-    pub const linked = struct {
-        extern var __bss_start: u8;
-        extern var __bss_end: u8;
-        extern var __data_start: u8;
-        extern var __data_end: u8;
-        extern var __flash_then_ram_start: u8;
-        pub fn prepareMemory() void {
-            var bss = slice(&__bss_start, &__bss_end);
-            var data = slice(&__data_start, &__data_end);
-            var flash_then_ram_stored = @ptrCast([*]u8, &__flash_then_ram_start)[0..data.len];
-            std.mem.copy(u8, data, flash_then_ram_stored);
-            std.mem.set(u8, bss, 0);
-        }
-        fn slice(start: *u8, end: *u8) []u8 {
-            return @ptrCast([*]u8, start)[0 .. @ptrToInt(end) - @ptrToInt(start)];
+    fn link() !void {
+        try Linker.discardSections(&[_][]const u8{".ARM.exidx"});
+        try flash.link();
+        try ram.link();
+    }
+    pub const flash = struct {
+        const name = "flash";
+        const size = 256 * 1024;
+        const start = 0;
+        fn link() !void {
+            try Linker.memory(name, size, start);
+            try Linker.sections(.{ .keep = true }, &[_][]const u8{".vector_table*"});
+            try Linker.sections(.{}, &[_][]const u8{".text*"});
+            try Linker.sections(.{}, &[_][]const u8{".rodata*"});
         }
     };
-    pub const memories = [_]MemoryRegion{ flash, flash_then_ram, ram };
     pub const number_of_peripherals = 32;
     pub const options = struct {
         pub const low_frequency_crystal = false;
@@ -81,15 +63,15 @@ pub const model = struct {
     pub const qemu = struct {
         pub const machine = "microbit";
     };
-    pub const ram = MemoryRegion{
-        .name = "ram",
-        .noload = true,
-        .access = "rwx",
-        .start = 0x20000000,
-        .size = 16 * 1024,
-        .sections = &[_]MemoryRegion.Section{
-            .{ .pattern = ".bss*", .externs_prefix = "__bss_" },
-        },
+    pub const ram = struct {
+        const name = "ram";
+        const size = 16 * 1024;
+        const start = 0x20000000;
+        fn link() !void {
+            try Linker.memory(name, size, start);
+            try Linker.sections(.{ .name = "data", .prepare_by_copying_from = flash }, &[_][]const u8{".data*"});
+            try Linker.sections(.{ .name = "bss", .prepare_by_setting_to_zero = true }, &[_][]const u8{".bss*"});
+        }
     };
     pub const stack_bottom = ram.start + ram.size;
     pub const target = std.zig.CrossTarget{
@@ -98,107 +80,175 @@ pub const model = struct {
         .abi = .none,
         .cpu_model = std.zig.CrossTarget.CpuModel{ .explicit = &std.Target.arm.cpu.cortex_m0 },
     };
-    const MemoryRegion = struct {
-        access: []const u8 = "",
-        destination: ?*const MemoryRegion = null,
-        name: []const u8,
-        noload: bool = false,
-        sections: []const Section,
-        size: u32 = 0,
-        source: ?*const MemoryRegion = null,
-        start: u32 = 0,
-        const Section = struct {
-            externs_prefix: ?[]const u8 = null,
-            keep: bool = false,
-            pattern: []const u8,
-        };
-    };
 };
 
-const GenerateLinkerScriptStep = struct {
-    step: std.build.Step = undefined,
-    pub fn make(step: *std.build.Step) anyerror!void {
-        var file = try fs.cwd().createFile(file_name, fs.File.CreateFlags{});
-        defer file.close();
-        try file.outStream().print(
+const Linker = struct {
+    fn link() !void {
+        externs_file = try fs.cwd().createFile(externs_file_name, fs.File.CreateFlags{});
+        defer externs_file.close();
+        externs = externs_file.outStream();
+        prepare_memory_file = try fs.cwd().createFile(prepare_memory_file_name, fs.File.CreateFlags{});
+        defer prepare_memory_file.close();
+        prepare_memory = prepare_memory_file.outStream();
+        script_file = try fs.cwd().createFile(script_file_name, fs.File.CreateFlags{});
+        defer script_file.close();
+        script = script_file.outStream();
+        try externs.print(
+            \\// {} - do not edit - generated by build.zig
+            \\
+        , .{externs_file_name});
+        try prepare_memory.print(
+            \\// {} - do not edit - generated by build.zig
+            \\
+            \\pub fn prepareMemory() void {{
+            \\
+        , .{prepare_memory_file_name});
+        try script.print(
             \\# {} - do not edit - generated by build.zig
             \\
-            \\MEMORY {{
-            \\
-        , .{file_name});
-        for (model.memories) |mem| {
-            if (mem.destination == null and mem.source == null) {
-                try file.outStream().print(
-                    \\    {} ({}) : ORIGIN = 0x{x}, LENGTH = 0x{x}
-                    \\
-                , .{ mem.name, mem.access, mem.start, mem.size });
-            }
-        }
-        try file.outStream().writeAll(
+        , .{script_file_name});
+        try model.link();
+        try prepare_memory.writeAll(
             \\}
+            \\
+            \\const externs = @import("generated_externs.zig");
+            \\const std = @import("std");
+            \\
+        );
+    }
+    fn memory(name: []const u8, size: u32, start: u32) !void {
+        current_memory_name = name;
+        try script.print(
+            \\
+            \\MEMORY {{
+            \\    {} : ORIGIN = 0x{x}, LENGTH = 0x{x}
+            \\}}
+            \\
+        , .{ name, start, size });
+    }
+    fn discardSections(patterns: []const []const u8) !void {
+        try script.writeAll(
             \\
             \\SECTIONS {
             \\    /DISCARD/ : {
-            \\        *(.ARM.exidx)
-            \\    }
-            \\
             \\
         );
-        for (model.memories) |mem| {
-            if (mem.destination != null or mem.source != null) {
-                try file.outStream().print(
-                    \\    __{}_start = .;
-                    \\    .{} : AT(__{}_start) {{
-                    \\
-                , .{ mem.name, mem.name, mem.name });
-            } else if (mem.noload) {
-                try file.outStream().print(
-                    \\    .{} (NOLOAD) : {{
-                    \\
-                , .{mem.name});
-            } else {
-                try file.outStream().print(
-                    \\    .{} : {{
-                    \\
-                , .{mem.name});
-            }
-            for (mem.sections) |sec| {
-                if (sec.externs_prefix) |prefix| {
-                    try file.outStream().print(
-                        \\        {}start = .;
-                        \\
-                    , .{prefix});
-                }
-                if (sec.keep) {
-                    try file.outStream().print(
-                        \\        KEEP(*({}))
-                        \\
-                    , .{sec.pattern});
-                } else {
-                    try file.outStream().print(
-                        \\        *({})
-                        \\
-                    , .{sec.pattern});
-                }
-                if (sec.externs_prefix) |prefix| {
-                    try file.outStream().print(
-                        \\        {}end = .;
-                        \\
-                    , .{prefix});
-                }
-            }
-            const destination = mem.destination orelse &mem;
-            try file.outStream().print(
-                \\    }} > {}
+        for (patterns) |p| {
+            try script.print(
+                \\        *({})
                 \\
-                \\
-            , .{(mem.destination orelse &mem).name});
+            , .{p});
         }
-        try file.outStream().writeAll(
+        try script.writeAll(
+            \\    }
             \\}
+            \\
         );
     }
-    const file_name = "generated-linker.ld";
+    fn sections(comptime options: SectionOptions, patterns: []const []const u8) !void {
+        if (options.prepare_by_copying_from) |mem| {
+            try script.print(
+                \\
+                \\SECTIONS {{
+                \\    __{}_load_start = {}_clc;
+                \\    .some_section_name : AT({}_clc) {{
+                \\        __{}_start = .;
+                \\
+            , .{ options.name, mem.name, mem.name, options.name });
+            try externs.print(
+                \\
+                \\pub extern var __{}_start: u8;
+                \\pub extern var __{}_end: u8;
+                \\pub extern var __{}_load_start: u8;
+                \\
+            , .{ options.name, options.name, options.name });
+            try prepare_memory.print(
+                \\    var {}_destination = @ptrCast([*]u8, &externs.__{}_start)[0 .. @ptrToInt(&externs.__{}_end) - @ptrToInt(&externs.__{}_start)];
+                \\    var {}_loaded = @ptrCast([*]u8, &externs.__{}_load_start)[0..{}_destination.len];
+                \\    std.mem.copy(u8, {}_destination, {}_loaded);
+                \\
+            , .{ options.name, options.name, options.name, options.name, options.name, options.name, options.name, options.name, options.name });
+        } else if (options.prepare_by_setting_to_zero) {
+            try script.print(
+                \\
+                \\SECTIONS {{
+                \\    .some_section_name (NOLOAD) : {{
+                \\        __{}_start = .;
+                \\
+            , .{options.name});
+            try externs.print(
+                \\
+                \\pub extern var __{}_start: u8;
+                \\pub extern var __{}_end: u8;
+                \\
+            , .{ options.name, options.name });
+            try prepare_memory.print(
+                \\    var {} = @ptrCast([*]u8, &externs.__{}_start)[0 .. @ptrToInt(&externs.__{}_end) - @ptrToInt(&externs.__{}_start)];
+                \\    std.mem.set(u8, {}, 0);
+                \\
+            , .{ options.name, options.name, options.name, options.name, options.name });
+        } else {
+            try script.writeAll(
+                \\
+                \\SECTIONS {
+                \\    .some_section_name : {
+                \\
+            );
+        }
+        for (patterns) |p| {
+            if (options.keep) {
+                try script.print(
+                    \\        KEEP(*({}))
+                    \\
+                , .{p});
+            } else {
+                try script.print(
+                    \\        *({})
+                    \\
+                , .{p});
+            }
+        }
+        if (options.prepare_by_setting_to_zero) {
+            try script.print(
+                \\        __{}_end = .;
+                \\
+            , .{options.name});
+        } else if (options.prepare_by_copying_from) |_| {
+            try script.print(
+                \\        __{}_end = .;
+                \\
+            , .{options.name});
+        }
+        try script.print(
+            \\        {}_clc = .;
+            \\    }} > {}
+            \\}}
+            \\
+        , .{ current_memory_name, current_memory_name });
+    }
+    const externs_file_name = "generated_externs.zig";
+    const prepare_memory_file_name = "generated_prepare_memory.zig";
+    const script_file_name = "generated_linker_script.ld";
+    const SectionOptions = struct {
+        keep: bool = false,
+        name: ?[]const u8 = null,
+        prepare_by_copying_from: ?type = null,
+        prepare_by_setting_to_zero: bool = false,
+    };
+    var current_memory_name: []const u8 = undefined;
+    var externs: std.io.OutStream(fs.File, std.os.WriteError, fs.File.write) = undefined;
+    var externs_file: fs.File = undefined;
+    var prepare_memory: std.io.OutStream(fs.File, std.os.WriteError, fs.File.write) = undefined;
+    var prepare_memory_file: fs.File = undefined;
+    var script: std.io.OutStream(fs.File, std.os.WriteError, fs.File.write) = undefined;
+    var script_file: fs.File = undefined;
+};
+
+const GenerateLinkerFiles = struct {
+    step: std.build.Step = undefined,
+    pub fn make(step: *std.build.Step) anyerror!void {
+        try Linker.link();
+    }
 };
 
 const MakeHexStep = struct {

@@ -1,6 +1,11 @@
 tasks:
   - name: zig build qemu
     init: ./update-zig.sh
-    command: export PATH=./zig:$PATH && zig build qemu
+    command: ./zig/zig build qemu
 image:
   file: .gitpod.Dockerfile
+
+vscode:
+  extensions:
+    - tiehuis.zig@0.2.4:hbowU7dZyB6IJiHzT3yPaw==
+    - SuperAuguste.zls-vscode@1.0.0:m7XXQB5lzYmw1XvxwhbM0w==
