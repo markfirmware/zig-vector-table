@@ -7,7 +7,7 @@ export var vector_table linksection(".vector_table") = packed struct {
 }{};
 
 fn reset() callconv(.C) noreturn {
-    @import("generated_prepare_memory.zig").prepareMemory();
+    @import("generated/generated_linker_files/generated_prepare_memory.zig").prepareMemory();
     Uart.prepare();
     Timers[0].prepare();
     Terminal.clearScreen();
@@ -32,7 +32,7 @@ fn exception() callconv(.C) noreturn {
         : [ipsr_interrupt_program_status_register] "=r" (-> usize)
     );
     const isr_number = ipsr_interrupt_program_status_register & 0xff;
-    panicf("exception {}", .{isr_number});
+    panicf("arm exception ipsr.isr_number {}", .{isr_number});
 }
 
 const Gpio = struct {
@@ -53,95 +53,6 @@ const Gpio = struct {
             unused3: u14 = 0,
         };
     };
-};
-
-pub const Pins = packed struct {
-    i2c_scl: u1 = 0,
-    ring2: u1 = 0,
-    ring1: u1 = 0,
-    ring0: u1 = 0,
-    led_cathodes: u9 = 0,
-    led_anodes: u3 = 0,
-    unused1: u1 = 0,
-    button_a: u1 = 0,
-    unused2: u6 = 0,
-    target_txd: u1 = 0,
-    target_rxd: u1 = 0,
-    button_b: u1 = 0,
-    unused3: u3 = 0,
-    i2c_sda: u1 = 0,
-    unused4: u1 = 0,
-    pub const of = struct {
-        pub const i2c_scl = Pins{ .i2c_scl = 1 };
-        pub const ring2 = Pins{ .ring2 = 1 };
-        pub const ring1 = Pins{ .ring1 = 1 };
-        pub const ring0 = Pins{ .ring0 = 1 };
-        pub const led_anodes = Pins{ .led_anodes = 0x7 };
-        pub const led_cathodes = Pins{ .led_cathodes = 0x1ff };
-        pub const leds = led_anodes.maskUnion(led_cathodes);
-        pub const button_a = Pins{ .button_a = 1 };
-        pub const target_txd = Pins{ .target_txd = 1 };
-        pub const target_rxd = Pins{ .target_rxd = 1 };
-        pub const button_b = Pins{ .button_b = 1 };
-        pub const i2c_sda = Pins{ .i2c_sda = 1 };
-    };
-    pub fn clear(self: Pins) void {
-        Gpio.registers.out.clear(self);
-    }
-    pub fn config(self: Pins, the_config: Gpio.registers.Config) void {
-        var i: u32 = 0;
-        while (i < self.width()) : (i += 1) {
-            Gpio.registers.config[self.position(i)].write(the_config);
-        }
-    }
-    pub fn connectI2c(self: Pins) void {
-        self.config(.{ .output_connected = 0, .input_disconnected = 0, .pull = .disabled, .drive = .s0d1, .sense = .disabled });
-    }
-    pub fn connectInput(self: Pins) void {
-        self.config(.{ .output_connected = 0, .input_disconnected = 0, .pull = .disabled, .drive = .s0s1, .sense = .disabled });
-    }
-    pub fn connectIo(self: Pins) void {
-        self.config(.{ .output_connected = 1, .input_disconnected = 0, .pull = .disabled, .drive = .s0s1, .sense = .disabled });
-    }
-    pub fn connectOutput(self: Pins) void {
-        self.config(.{ .output_connected = 1, .input_disconnected = 1, .pull = .disabled, .drive = .s0s1, .sense = .disabled });
-    }
-    pub fn directionClear(self: @This()) void {
-        Gpio.registers.direction.clear(self);
-    }
-    pub fn directionSet(self: @This()) void {
-        Gpio.registers.direction.set(self);
-    }
-    pub fn mask(self: Pins) u32 {
-        assert(@sizeOf(Pins) == 4);
-        return @bitCast(u32, self);
-    }
-    pub fn maskUnion(self: Pins, other: Pins) Pins {
-        return @bitCast(Pins, self.mask() | other.mask());
-    }
-    pub fn outRead(self: Pins) u32 {
-        return (@bitCast(u32, Gpio.registers.out.read()) & self.mask()) >> self.position(0);
-    }
-    fn position(self: Pins, i: u32) u5 {
-        return @truncate(u5, @ctz(u32, self.mask()) + i);
-    }
-    pub fn read(self: Pins) u32 {
-        return (@bitCast(u32, Gpio.registers.in.read()) & self.mask()) >> self.position(0);
-    }
-    pub fn set(self: Pins) void {
-        Gpio.registers.out.set(self);
-    }
-    fn width(self: Pins) u32 {
-        return 32 - @clz(u32, self.mask()) - @ctz(u32, self.mask());
-    }
-    pub fn write(self: Pins, x: u32) void {
-        var new = Gpio.registers.out.read().mask() & ~self.mask();
-        new |= (x << self.position(0)) & self.mask();
-        Gpio.registers.out.write(@bitCast(Pins, new));
-    }
-    pub fn writeWholeMask(self: Pins) void {
-        Gpio.registers.out.write(self);
-    }
 };
 
 const Peripheral = struct {
@@ -253,6 +164,95 @@ const Peripheral = struct {
                 }
             };
         };
+    }
+};
+
+pub const Pins = packed struct {
+    i2c_scl: u1 = 0,
+    ring2: u1 = 0,
+    ring1: u1 = 0,
+    ring0: u1 = 0,
+    led_cathodes: u9 = 0,
+    led_anodes: u3 = 0,
+    unused1: u1 = 0,
+    button_a: u1 = 0,
+    unused2: u6 = 0,
+    target_txd: u1 = 0,
+    target_rxd: u1 = 0,
+    button_b: u1 = 0,
+    unused3: u3 = 0,
+    i2c_sda: u1 = 0,
+    unused4: u1 = 0,
+    pub const of = struct {
+        pub const i2c_scl = Pins{ .i2c_scl = 1 };
+        pub const ring2 = Pins{ .ring2 = 1 };
+        pub const ring1 = Pins{ .ring1 = 1 };
+        pub const ring0 = Pins{ .ring0 = 1 };
+        pub const led_anodes = Pins{ .led_anodes = 0x7 };
+        pub const led_cathodes = Pins{ .led_cathodes = 0x1ff };
+        pub const leds = led_anodes.maskUnion(led_cathodes);
+        pub const button_a = Pins{ .button_a = 1 };
+        pub const target_txd = Pins{ .target_txd = 1 };
+        pub const target_rxd = Pins{ .target_rxd = 1 };
+        pub const button_b = Pins{ .button_b = 1 };
+        pub const i2c_sda = Pins{ .i2c_sda = 1 };
+    };
+    pub fn clear(self: Pins) void {
+        Gpio.registers.out.clear(self);
+    }
+    pub fn config(self: Pins, the_config: Gpio.registers.Config) void {
+        var i: u32 = 0;
+        while (i < self.width()) : (i += 1) {
+            Gpio.registers.config[self.position(i)].write(the_config);
+        }
+    }
+    pub fn connectI2c(self: Pins) void {
+        self.config(.{ .output_connected = 0, .input_disconnected = 0, .pull = .disabled, .drive = .s0d1, .sense = .disabled });
+    }
+    pub fn connectInput(self: Pins) void {
+        self.config(.{ .output_connected = 0, .input_disconnected = 0, .pull = .disabled, .drive = .s0s1, .sense = .disabled });
+    }
+    pub fn connectIo(self: Pins) void {
+        self.config(.{ .output_connected = 1, .input_disconnected = 0, .pull = .disabled, .drive = .s0s1, .sense = .disabled });
+    }
+    pub fn connectOutput(self: Pins) void {
+        self.config(.{ .output_connected = 1, .input_disconnected = 1, .pull = .disabled, .drive = .s0s1, .sense = .disabled });
+    }
+    pub fn directionClear(self: @This()) void {
+        Gpio.registers.direction.clear(self);
+    }
+    pub fn directionSet(self: @This()) void {
+        Gpio.registers.direction.set(self);
+    }
+    pub fn mask(self: Pins) u32 {
+        assert(@sizeOf(Pins) == 4);
+        return @bitCast(u32, self);
+    }
+    pub fn maskUnion(self: Pins, other: Pins) Pins {
+        return @bitCast(Pins, self.mask() | other.mask());
+    }
+    pub fn outRead(self: Pins) u32 {
+        return (@bitCast(u32, Gpio.registers.out.read()) & self.mask()) >> self.position(0);
+    }
+    fn position(self: Pins, i: u32) u5 {
+        return @truncate(u5, @ctz(u32, self.mask()) + i);
+    }
+    pub fn read(self: Pins) u32 {
+        return (@bitCast(u32, Gpio.registers.in.read()) & self.mask()) >> self.position(0);
+    }
+    pub fn set(self: Pins) void {
+        Gpio.registers.out.set(self);
+    }
+    fn width(self: Pins) u32 {
+        return 32 - @clz(u32, self.mask()) - @ctz(u32, self.mask());
+    }
+    pub fn write(self: Pins, x: u32) void {
+        var new = Gpio.registers.out.read().mask() & ~self.mask();
+        new |= (x << self.position(0)) & self.mask();
+        Gpio.registers.out.write(@bitCast(Pins, new));
+    }
+    pub fn writeWholeMask(self: Pins) void {
+        Gpio.registers.out.write(self);
     }
 };
 
@@ -512,20 +512,20 @@ const Uart = struct {
     }
 };
 
-pub fn hangf(comptime fmt: []const u8, args: var) noreturn {
+fn hangf(comptime fmt: []const u8, args: var) noreturn {
     log(fmt, args);
     Uart.drainTx();
     while (true) {}
 }
 
-pub fn panicf(comptime fmt: []const u8, args: var) noreturn {
+fn panicf(comptime fmt: []const u8, args: var) noreturn {
     @setCold(true);
     log("\npanicf(): " ++ fmt, args);
     hangf("panic completed", .{});
 }
 
 const assert = std.debug.assert;
-const print = Uart.print;
 const log = Uart.log;
-const model = @import("build.zig").model;
+const model = @import("system_model.zig");
+const print = Uart.print;
 const std = @import("std");

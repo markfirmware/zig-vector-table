@@ -11,9 +11,6 @@ jobs:
     - uses: actions/checkout@v1
     - name: install software
       run: |
-        wget --quiet --output-document=- https://github.com/github/hub/releases/download/v2.12.3/hub-linux-amd64-2.12.3.tgz | tar zx
-        mv hub-linux-* hub
-        ./hub/bin/hub --version
         ./update-zig.sh
 
     - name: build
