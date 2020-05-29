@@ -1,8 +1,5 @@
-pub fn linkModel() void {
-    Linker.discardSections(&[_][]const u8{".ARM.exidx"});
-    Linker.linkMemory(flash);
-    Linker.linkMemory(ram);
-}
+const std = @import("std");
+const Linker = @import("linker.zig");
 pub const flash = struct {
     pub const name = "flash";
     pub const size = 256 * 1024;
@@ -38,5 +35,8 @@ pub const target = std.zig.CrossTarget{
     .abi = .none,
     .cpu_model = std.zig.CrossTarget.CpuModel{ .explicit = &std.Target.arm.cpu.cortex_m0 },
 };
-const std = @import("std");
-const Linker = @import("linker.zig");
+pub fn linkModel() void {
+    Linker.discardSections(&[_][]const u8{".ARM.exidx"});
+    Linker.linkMemory(flash);
+    Linker.linkMemory(ram);
+}

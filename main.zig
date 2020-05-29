@@ -11,14 +11,16 @@ fn reset() callconv(.C) noreturn {
     Uart.prepare();
     Timers[0].prepare();
     Terminal.clearScreen();
+    Terminal.move(1, 1);
+    log("https://github.com/zig-vector-table is running on a microbit!", .{});
     var t = TimeKeeper.ofMilliseconds(1000);
     var i: u32 = 0;
     while (true) {
         Uart.update();
         if (t.isFinishedThenReset()) {
             i += 1;
-            Terminal.move(1, 1);
-            log("uptime {}s", .{i});
+            Terminal.move(2, 1);
+            log("up and running for {} seconds!", .{i});
         }
     }
 }
@@ -257,9 +259,6 @@ pub const Pins = packed struct {
 };
 
 pub const Terminal = struct {
-    var height: u32 = 24;
-    var width: u32 = 80;
-
     pub fn attribute(n: u32) void {
         pair(n, 0, "m");
     }
@@ -313,6 +312,8 @@ pub const Terminal = struct {
         Uart.writeText(csi ++ "?25h");
     }
     const csi = "\x1b[";
+    var height: u32 = 24;
+    var width: u32 = 80;
 };
 
 pub const TimeKeeper = struct {
@@ -364,8 +365,6 @@ pub const TimeKeeper = struct {
 
 pub const Timers = [_]@TypeOf(Timer(0x40008000)){ Timer(0x40008000), Timer(0x40009000), Timer(0x4000a000) };
 
-// bit mode
-// prescaler
 fn Timer(base: u32) type {
     return struct {
         const max_width = if (base == 0x40008000) @as(u32, 32) else 16;
