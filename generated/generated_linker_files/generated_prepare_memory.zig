@@ -2,12 +2,12 @@
 
 pub fn prepareMemory() void {
     
-    var data_destination = @ptrCast([*]u8, &externs.__data_start)[0 .. @ptrToInt(&externs.__data_end) - @ptrToInt(&externs.__data_start)];
-    var data_loaded = @ptrCast([*]u8, &externs.__data_load_start)[0..data_destination.len];
-    std.mem.copy(u8, data_destination, data_loaded);
+    var flash_slice = @ptrCast([*]u8, &externs.__data_loaded_in_flash_that_program_must_copy_to_ram_start)[0 .. @ptrToInt(&externs.__data_loaded_in_flash_that_program_must_copy_to_ram_end) - @ptrToInt(&externs.__data_loaded_in_flash_that_program_must_copy_to_ram_start)];
+    var ram_slice = @ptrCast([*]u8, &externs.__data_loaded_in_flash_that_program_must_copy_to_ram_load_start)[0..flash_slice.len];
+    std.mem.copy(u8, ram_slice, flash_slice);
     
-    var bss = @ptrCast([*]u8, &externs.__bss_start)[0 .. @ptrToInt(&externs.__bss_end) - @ptrToInt(&externs.__bss_start)];
-    std.mem.set(u8, bss, 0);
+    var ram = @ptrCast([*]u8, &externs.__data_that_program_must_set_to_zero_start)[0 .. @ptrToInt(&externs.__data_that_program_must_set_to_zero_end) - @ptrToInt(&externs.__data_that_program_must_set_to_zero_start)];
+    std.mem.set(u8, ram, 0);
 }
 
 const externs = @import("generated_externs.zig");

@@ -10,7 +10,7 @@ https://static.docs.arm.com/dui0497/a/DUI0497A_cortex_m0_r0p0_generic_ug.pdf#pag
 
 The reset function prepares memory (copies initial data from flash to ram and sets other data
 to 0.) It then prepares the uart and timer and displays the up-time every second.
-[main.zig](https://github.com/markfirmware/zig-vector-table/blob/master/main.zig#L9-L24)
+[main.zig](https://github.com/markfirmware/zig-vector-table/blob/master/main.zig#L9-L23)
 
     fn reset() callconv(.C) noreturn {
         @import("generated/generated_linker_files/generated_prepare_memory.zig").prepareMemory();

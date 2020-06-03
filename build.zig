@@ -2,6 +2,7 @@ pub fn build(b: *std.build.Builder) !void {
     const display_option = b.option(bool, "display", "graphics display for qemu") orelse false;
     const build_exe = b.addExecutable("main", "main.zig");
     buildExeDetails: {
+        build_exe.emit_asm = true;
         build_exe.install();
         build_exe.setBuildMode(b.standardReleaseOptions());
         build_exe.setLinkerScriptPath(Linker.script_file_name);
@@ -9,7 +10,7 @@ pub fn build(b: *std.build.Builder) !void {
         build_exe.link_function_sections = true;
     }
     const format_source = b.addFmt(&[_][]const u8{ "build.zig", "linker.zig", "main.zig", "system_model.zig" });
-    const generate_linker_files = addCustomStep(b, GenerateLinkerFilesStep{});
+    const generate_linker_files = Linker.addGenerateLinkerFilesStep(b, model);
     const generate_linker_files_folder = b.addSystemCommand(&[_][]const u8{ "mkdir", "-p", Linker.generated_path });
     const install_raw = b.addInstallRaw(build_exe, "main.img");
     const make_hex_file = addCustomStep(b, MakeHexFileStep{ .input_name = "zig-cache/bin/main.img", .output_name = "main.hex" });
@@ -40,13 +41,6 @@ pub fn build(b: *std.build.Builder) !void {
         b.default_step.dependOn(&build_exe.step);
     }
 }
-
-const GenerateLinkerFilesStep = struct {
-    step: std.build.Step = undefined,
-    pub fn make(step: *std.build.Step) anyerror!void {
-        Linker.link();
-    }
-};
 
 const MakeHexFileStep = struct {
     step: std.build.Step = undefined,
@@ -101,7 +95,7 @@ const MakeHexFileStep = struct {
 pub fn addCustomStep(self: *std.build.Builder, customStep: var) *@TypeOf(customStep) {
     var allocated = self.allocator.create(@TypeOf(customStep)) catch unreachable;
     allocated.* = customStep;
-    allocated.*.step = Step.init(.Custom, @typeName(@TypeOf(customStep)), self.allocator, @TypeOf(customStep).make);
+    allocated.*.step = std.build.Step.init(.Custom, @typeName(@TypeOf(customStep)), self.allocator, @TypeOf(customStep).make);
     return allocated;
 }
 
@@ -109,4 +103,3 @@ const fs = std.fs;
 const Linker = @import("linker.zig");
 const model = @import("system_model.zig");
 const std = @import("std");
-const Step = std.build.Step;

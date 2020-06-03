@@ -12,7 +12,7 @@ fn reset() callconv(.C) noreturn {
     Timers[0].prepare();
     Terminal.clearScreen();
     Terminal.move(1, 1);
-    log("https://github.com/zig-vector-table is running on a microbit!", .{});
+    log("https://github.com/markfirmware/zig-vector-table is running on a microbit!", .{});
     var t = TimeKeeper.ofMilliseconds(1000);
     var i: u32 = 0;
     while (true) {
