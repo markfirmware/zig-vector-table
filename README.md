@@ -17,14 +17,16 @@ to 0.) It then prepares the uart and timer and displays the up-time every second
         Uart.prepare();
         Timers[0].prepare();
         Terminal.clearScreen();
+        Terminal.move(1, 1);
+        log("https://github.com/markfirmware/zig-vector-table is running on a microbit!", .{});
         var t = TimeKeeper.ofMilliseconds(1000);
         var i: u32 = 0;
         while (true) {
             Uart.update();
             if (t.isFinishedThenReset()) {
                 i += 1;
-                Terminal.move(1, 1);
-                log("uptime {}s", .{i});
+                Terminal.move(2, 1);
+                log("up and running for {} seconds!", .{i});
 
 The system is comprised of 256KB of flash and 16KB of ram memories: [system_model.zig](https://github.com/markfirmware/zig-vector-table/blob/master/system_model.zig#L3-L12)/[2][Memory Organization, p21](https://infocenter.nordicsemi.com/pdf/nRF51822_PS_v3.1.pdf#page=21)
 
