@@ -36,7 +36,7 @@ SECTIONS {
     } > ram
 }
 
-# .ARM.exidx must be discarded until "provide -fno-unwind-tables" is resolved https://github.com/ziglang/zig/issues/5464
+# .ARM.exidx must be discarded until "Provide -fno-unwind-tables" is resolved https://github.com/ziglang/zig/issues/5464
 
 SECTIONS {
     /DISCARD/ : {
