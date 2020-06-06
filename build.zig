@@ -9,9 +9,8 @@ pub fn build(b: *std.build.Builder) !void {
         build_exe.setTarget(model.target);
         build_exe.link_function_sections = true;
     }
-    const format_source = b.addFmt(&[_][]const u8{ "build.zig", "linker.zig", "main.zig", "system_model.zig" });
+    const format_source = b.addFmt(&[_][]const u8{ "build.zig", "linker.zig", "main.zig", "system_model.zig", "generated/generated_linker_files/generated_prepare_memory.zig" });
     const generate_linker_files = Linker.addGenerateLinkerFilesStep(b, model);
-    const generate_linker_files_folder = b.addSystemCommand(&[_][]const u8{ "mkdir", "-p", Linker.generated_path });
     const install_raw = b.addInstallRaw(build_exe, "main.img");
     const make_hex_file = addCustomStep(b, MakeHexFileStep{ .input_name = "zig-cache/bin/main.img", .output_name = "main.hex" });
     const run_qemu = b.addSystemCommand(&[_][]const u8{
@@ -27,7 +26,7 @@ pub fn build(b: *std.build.Builder) !void {
     });
 
     declareDependencies: {
-        generate_linker_files.step.dependOn(&generate_linker_files_folder.step);
+        format_source.step.dependOn(&generate_linker_files.step);
         build_exe.step.dependOn(&format_source.step);
         build_exe.step.dependOn(&generate_linker_files.step);
         install_raw.step.dependOn(&build_exe.step);
