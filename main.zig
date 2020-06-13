@@ -1,5 +1,5 @@
 export var vector_table linksection(".vector_table") = packed struct {
-    initial_sp: u32 = model.stack_bottom,
+    initial_sp: u32 = model.memory.stack_bottom,
     reset: EntryPoint = reset,
     system_exceptions: [14]EntryPoint = [1]EntryPoint{exception} ** 14,
     interrupts: [model.number_of_peripherals]EntryPoint = [1]EntryPoint{exception} ** model.number_of_peripherals,
@@ -10,16 +10,24 @@ fn reset() callconv(.C) noreturn {
     @import("generated/generated_linker_files/generated_prepare_memory.zig").prepareMemory();
     Uart.prepare();
     Timers[0].prepare();
+    Terminal.reset();
     Terminal.clearScreen();
     Terminal.move(1, 1);
     log("https://github.com/markfirmware/zig-vector-table is running on a microbit!", .{});
+    var status_line_number: u32 = 2;
+    if (Ficr.isQemu()) {
+        Terminal.attribute(35);
+        log("actually qemu -M microbit", .{});
+        Terminal.attribute(0);
+        status_line_number += 1;
+    }
     var t = TimeKeeper.ofMilliseconds(1000);
     var i: u32 = 0;
     while (true) {
         Uart.update();
         if (t.isFinishedThenReset()) {
             i += 1;
-            Terminal.move(2, 1);
+            Terminal.move(status_line_number, 1);
             log("up and running for {} seconds!", .{i});
         }
     }
@@ -36,6 +44,16 @@ fn exception() callconv(.C) noreturn {
     const isr_number = ipsr_interrupt_program_status_register & 0xff;
     panicf("arm exception ipsr.isr_number {}", .{isr_number});
 }
+
+const Ficr = struct {
+    pub fn deviceId() u64 {
+        return @as(u64, contents[0x64 / 4]) << 32 | contents[0x60 / 4];
+    }
+    pub fn isQemu() bool {
+        return deviceId() == 0x1234567800000003;
+    }
+    pub const contents = @intToPtr(*[64]u32, 0x10000000);
+};
 
 const Gpio = struct {
     const p = Peripheral.at(0x50000000);

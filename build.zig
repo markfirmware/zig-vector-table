@@ -53,7 +53,7 @@ const MakeHexFileStep = struct {
         const hex = try cwd.createFile(self.output_name, fs.File.CreateFlags{});
         defer hex.close();
         var offset: usize = 0;
-        var read_buf: [model.flash.size]u8 = undefined;
+        var read_buf: [model.memory.flash.size]u8 = undefined;
         while (true) {
             var n = try image.read(&read_buf);
             if (n == 0) {
