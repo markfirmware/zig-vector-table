@@ -11,9 +11,9 @@ jobs:
     - uses: actions/checkout@v1
     - name: install software
       run: |
-        ./update-zig.sh
+        ./tools/update-tools.sh
 
     - name: build
       run: |
-        export PATH=./zig:$PATH
+        export PATH=./tools/zig:$PATH
         .github/workflows/build.sh

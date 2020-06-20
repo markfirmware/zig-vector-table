@@ -453,13 +453,21 @@ const Uart = struct {
         pub const txd = p.register(0x51c);
         pub const baud_rate = p.register(0x524);
     };
-    var stream: std.io.OutStream(Uart, stream_error, writeTextError) = undefined;
+    const Instance = struct {
+        pub fn write(context: *Instance, buffer: []const u8) Error!usize {
+            Uart.writeText(buffer);
+            return buffer.len;
+        }
+        const Error = error{UartError};
+        const Writer = std.io.Writer(*Instance, Instance.Error, Instance.write);
+        const writer = Writer{ .context = &instance };
+        var instance = Instance{};
+    };
     var tx_busy: bool = undefined;
     var tx_queue: [3]u8 = undefined;
     var tx_queue_read: usize = undefined;
     var tx_queue_write: usize = undefined;
     var updater: ?fn () void = undefined;
-    const stream_error = error{UartError};
     pub fn drainTx() void {
         while (tx_queue_read != tx_queue_write) {
             loadTxd();
@@ -477,7 +485,7 @@ const Uart = struct {
         return events.rx_ready.occurred();
     }
     pub fn print(comptime fmt: []const u8, args: var) void {
-        std.fmt.format(stream, fmt, args) catch |_| {};
+        std.fmt.format(Instance.writer, fmt, args) catch |_| {};
     }
     pub fn loadTxd() void {
         if (tx_queue_read != tx_queue_write and (!tx_busy or events.tx_ready.occurred())) {
@@ -503,10 +511,6 @@ const Uart = struct {
                 else => writeByteBlocking(c),
             }
         }
-    }
-    pub fn writeTextError(self: Uart, buffer: []const u8) stream_error!usize {
-        writeText(buffer);
-        return buffer.len;
     }
     pub fn setUpdater(new_updater: fn () void) void {
         updater = new_updater;

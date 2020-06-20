@@ -1,5 +1,6 @@
 main.asm
 main.hex
-zig/
-zig-cache/
-zls/
+/tools/zig-linux-*
+/tools/zig/
+/tools/zls/
+/zig-cache/
