@@ -286,7 +286,7 @@ pub const Terminal = struct {
     pub fn hideCursor() void {
         Uart.writeText(csi ++ "?25l");
     }
-    pub fn line(comptime fmt: []const u8, args: var) void {
+    pub fn line(comptime fmt: []const u8, args: anytype) void {
         print(fmt, args);
         pair(0, 0, "K");
         Uart.writeText("\n");
@@ -484,7 +484,7 @@ const Uart = struct {
     pub fn isReadByteReady() bool {
         return events.rx_ready.occurred();
     }
-    pub fn print(comptime fmt: []const u8, args: var) void {
+    pub fn print(comptime fmt: []const u8, args: anytype) void {
         std.fmt.format(Instance.writer, fmt, args) catch |_| {};
     }
     pub fn loadTxd() void {
@@ -498,7 +498,7 @@ const Uart = struct {
             }
         }
     }
-    pub fn log(comptime fmt: []const u8, args: var) void {
+    pub fn log(comptime fmt: []const u8, args: anytype) void {
         print(fmt ++ "\n", args);
     }
     pub fn writeText(buffer: []const u8) void {
@@ -533,13 +533,13 @@ const Uart = struct {
     }
 };
 
-fn hangf(comptime fmt: []const u8, args: var) noreturn {
+fn hangf(comptime fmt: []const u8, args: anytype) noreturn {
     log(fmt, args);
     Uart.drainTx();
     while (true) {}
 }
 
-fn panicf(comptime fmt: []const u8, args: var) noreturn {
+fn panicf(comptime fmt: []const u8, args: anytype) noreturn {
     @setCold(true);
     log("\npanicf(): " ++ fmt, args);
     hangf("panic completed", .{});

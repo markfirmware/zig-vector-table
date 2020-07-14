@@ -107,18 +107,18 @@ pub fn linkSections(comptime options: Section) void {
 }
 
 const IndentedStream = struct {
-    pub fn begin(self: *IndentedStream, comptime format: []const u8, args: var) void {
+    pub fn begin(self: *IndentedStream, comptime format: []const u8, args: anytype) void {
         self.line(format ++ " {{", args);
         self.indent += 1;
     }
     pub fn close(self: *IndentedStream) void {
         self.file.close();
     }
-    pub fn end(self: *IndentedStream, comptime format: []const u8, args: var) void {
+    pub fn end(self: *IndentedStream, comptime format: []const u8, args: anytype) void {
         self.indent -= 1;
         self.line("}}" ++ format, args);
     }
-    pub fn line(self: *IndentedStream, comptime format: []const u8, args: var) void {
+    pub fn line(self: *IndentedStream, comptime format: []const u8, args: anytype) void {
         self.print(format ++ "\n", args);
     }
     pub fn open(file_name: []const u8) IndentedStream {
@@ -128,7 +128,7 @@ const IndentedStream = struct {
         self.out = self.file.outStream();
         return self;
     }
-    pub fn print(self: *IndentedStream, comptime format: []const u8, args: var) void {
+    pub fn print(self: *IndentedStream, comptime format: []const u8, args: anytype) void {
         var i: u32 = 0;
         while (i < self.indent) : (i += 1) {
             self.file.writeAll("    ") catch unreachable;

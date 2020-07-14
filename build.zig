@@ -91,7 +91,7 @@ const MakeHexFileStep = struct {
     const hex_record_len = 32;
 };
 
-pub fn addCustomStep(self: *std.build.Builder, customStep: var) *@TypeOf(customStep) {
+pub fn addCustomStep(self: *std.build.Builder, customStep: anytype) *@TypeOf(customStep) {
     var allocated = self.allocator.create(@TypeOf(customStep)) catch unreachable;
     allocated.* = customStep;
     allocated.*.step = std.build.Step.init(.Custom, @typeName(@TypeOf(customStep)), self.allocator, @TypeOf(customStep).make);
