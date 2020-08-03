@@ -67,8 +67,7 @@ pub fn linkSections(comptime options: Section) void {
         prepare_memory.line("extern var __{}_start: u8;", .{options.name});
         prepare_memory.line("extern var __{}_end: u8;", .{options.name});
         prepare_memory.line("extern var __{}_load_start: u8;", .{options.name});
-        prepare_memory.indent -= 1;
-        prepare_memory.print("}};\n", .{});
+        prepare_memory.end(";", .{});
         prepare_memory.line("const start = &e.__{}_start;", .{options.name});
         prepare_memory.line("const end = &e.__{}_end;", .{options.name});
         prepare_memory.line("const slice = @ptrCast([*]u8, start)[0 .. @ptrToInt(end) - @ptrToInt(start)];", .{});
@@ -83,8 +82,7 @@ pub fn linkSections(comptime options: Section) void {
         prepare_memory.begin("const e = struct", .{});
         prepare_memory.line("extern var __{}_start: u8;", .{options.name});
         prepare_memory.line("extern var __{}_end: u8;", .{options.name});
-        prepare_memory.indent -= 1;
-        prepare_memory.print("}};\n", .{});
+        prepare_memory.end(";", .{});
         prepare_memory.line("const start = &e.__{}_start;", .{options.name});
         prepare_memory.line("const end = &e.__{}_end;", .{options.name});
         prepare_memory.line("const slice = @ptrCast([*]u8, start)[0 .. @ptrToInt(end) - @ptrToInt(start)];", .{});
@@ -108,35 +106,44 @@ pub fn linkSections(comptime options: Section) void {
 
 const IndentedStream = struct {
     pub fn begin(self: *IndentedStream, comptime format: []const u8, args: anytype) void {
-        self.line(format ++ " {{", args);
-        self.indent += 1;
+        self.indent();
+        self.out.print(format, args) catch unreachable;
+        self.writeAll(" {\n");
+        self.indent_depth += 1;
     }
     pub fn close(self: *IndentedStream) void {
         self.file.close();
     }
     pub fn end(self: *IndentedStream, comptime format: []const u8, args: anytype) void {
-        self.indent -= 1;
-        self.line("}}" ++ format, args);
+        self.indent_depth -= 1;
+        self.indent();
+        self.writeAll("}");
+        self.out.print(format, args) catch unreachable;
+        self.writeAll("\n");
+    }
+    fn indent(self: *IndentedStream) void {
+        var i: u32 = 0;
+        while (i < self.indent_depth) : (i += 1) {
+            self.writeAll("    ");
+        }
     }
     pub fn line(self: *IndentedStream, comptime format: []const u8, args: anytype) void {
-        self.print(format ++ "\n", args);
+        self.indent();
+        self.out.print(format, args) catch unreachable;
+        self.writeAll("\n");
     }
     pub fn open(file_name: []const u8) IndentedStream {
         var self: IndentedStream = undefined;
-        self.indent = 0;
+        self.indent_depth = 0;
         self.file = fs.cwd().createFile(file_name, fs.File.CreateFlags{}) catch unreachable;
         self.out = self.file.outStream();
         return self;
     }
-    pub fn print(self: *IndentedStream, comptime format: []const u8, args: anytype) void {
-        var i: u32 = 0;
-        while (i < self.indent) : (i += 1) {
-            self.file.writeAll("    ") catch unreachable;
-        }
-        self.out.print(format, args) catch unreachable;
+    fn writeAll(self: *IndentedStream, bytes: []const u8) void {
+        self.file.writeAll(bytes) catch unreachable;
     }
     file: fs.File,
-    indent: u32,
+    indent_depth: u32,
     in_buffer: [200]u8,
     out: std.io.OutStream(fs.File, std.os.WriteError, fs.File.write),
 };
