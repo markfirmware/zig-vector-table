@@ -1,14 +1,15 @@
 pub fn build(b: *std.build.Builder) !void {
     const display_option = b.option(bool, "display", "graphics display for qemu") orelse false;
     const build_exe = b.addExecutable("main", "main.zig");
-    buildExeDetails: {
+    _ = buildExeDetails: {
         build_exe.emit_asm = true;
         build_exe.install();
         build_exe.setBuildMode(b.standardReleaseOptions());
         build_exe.setLinkerScriptPath(Linker.script_file_name);
         build_exe.setTarget(model.target);
         build_exe.link_function_sections = true;
-    }
+        break :buildExeDetails 0;
+    };
     const format_source = b.addFmt(&[_][]const u8{ "build.zig", "linker.zig", "main.zig", "system_model.zig", "generated/generated_linker_files/generated_prepare_memory.zig" });
     const generate_linker_files = Linker.addGenerateLinkerFilesStep(b, model);
     const install_raw = b.addInstallRaw(build_exe, "main.img");
@@ -25,20 +26,22 @@ pub fn build(b: *std.build.Builder) !void {
         if (display_option) "gtk" else "none",
     });
 
-    declareDependencies: {
+    _ = declareDependencies: {
         format_source.step.dependOn(&generate_linker_files.step);
         build_exe.step.dependOn(&format_source.step);
         build_exe.step.dependOn(&generate_linker_files.step);
         install_raw.step.dependOn(&build_exe.step);
         make_hex_file.step.dependOn(&install_raw.step);
         run_qemu.step.dependOn(&install_raw.step);
-    }
+        break :declareDependencies 0;
+    };
 
-    declareCommandLineSteps: {
+    _ = declareCommandLineSteps: {
         b.step("make-hex", "make hex file to copy to device").dependOn(&make_hex_file.step);
         b.step("qemu", "run in qemu").dependOn(&run_qemu.step);
         b.default_step.dependOn(&build_exe.step);
-    }
+        break :declareCommandLineSteps 0;
+    };
 }
 
 const MakeHexFileStep = struct {

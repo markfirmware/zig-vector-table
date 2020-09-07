@@ -62,7 +62,7 @@ pub fn linkSections(comptime options: Section) void {
         script.end(" > {}", .{mem.name});
         script.begin(".{} : AT(__{}_load_start)", .{ options.name, options.name });
         script.line("__{}_start = .;", .{options.name});
-        prepare_memory.begin("{}:", .{options.name});
+        prepare_memory.begin("_ = {}:", .{options.name});
         prepare_memory.begin("const e = struct", .{});
         prepare_memory.line("extern var __{}_start: u8;", .{options.name});
         prepare_memory.line("extern var __{}_end: u8;", .{options.name});
@@ -74,11 +74,12 @@ pub fn linkSections(comptime options: Section) void {
         prepare_memory.line("const load_start = &e.__{}_load_start;", .{options.name});
         prepare_memory.line("const loaded_slice = @ptrCast([*]u8, load_start)[0..slice.len];", .{});
         prepare_memory.line("std.mem.copy(u8, slice, loaded_slice);", .{});
-        prepare_memory.end("", .{});
+        prepare_memory.line("break :{} 0;", .{options.name});
+        prepare_memory.end(";", .{});
     } else if (options.prepare_by_setting_to_zero) {
         script.begin(".{} (NOLOAD) :", .{options.name});
         script.line("__{}_start = .;", .{options.name});
-        prepare_memory.begin("{}:", .{options.name});
+        prepare_memory.begin("_ = {}:", .{options.name});
         prepare_memory.begin("const e = struct", .{});
         prepare_memory.line("extern var __{}_start: u8;", .{options.name});
         prepare_memory.line("extern var __{}_end: u8;", .{options.name});
@@ -87,7 +88,8 @@ pub fn linkSections(comptime options: Section) void {
         prepare_memory.line("const end = &e.__{}_end;", .{options.name});
         prepare_memory.line("const slice = @ptrCast([*]u8, start)[0 .. @ptrToInt(end) - @ptrToInt(start)];", .{});
         prepare_memory.line("std.mem.set(u8, slice, 0);", .{});
-        prepare_memory.end("", .{});
+        prepare_memory.line("break :{} 0;", .{options.name});
+        prepare_memory.end(";", .{});
     } else {
         script.begin(".{} :", .{options.name});
     }
