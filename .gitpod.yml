@@ -5,21 +5,14 @@ ports:
     onOpen: ignore
   - port: 6080
     onOpen: open-browser
-  - port: 8080
-    onOpen: open-preview
 
 tasks:
-  - name: github pages
-    init: pushd docs-src && npm install && popd
-    command: cd docs-src && npm start
-
   - name: zig build qemu
     init: ./tools/update-tools.sh
     command:
       export PATH=./tools/zig:$PATH &&
       echo building ... &&
       zig build qemu
-
 vscode:
   extensions:
     - tiehuis.zig@0.2.4:QyZ1jN51sNx8oPaymdmrmA==
