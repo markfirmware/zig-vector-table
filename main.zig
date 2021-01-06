@@ -34,7 +34,7 @@ fn reset() callconv(.C) noreturn {
 }
 
 pub fn panic(message: []const u8, trace: ?*std.builtin.StackTrace) noreturn {
-    panicf("panic(): {}", .{message});
+    panicf("panic(): {s}", .{message});
 }
 
 fn exception() callconv(.C) noreturn {
@@ -296,13 +296,13 @@ pub const Terminal = struct {
     }
     pub fn pair(a: u32, b: u32, letter: []const u8) void {
         if (a <= 1 and b <= 1) {
-            print("{}{}", .{ csi, letter });
+            print("{s}{s}", .{ csi, letter });
         } else if (b <= 1) {
-            print("{}{}{}", .{ csi, a, letter });
+            print("{s}{}{s}", .{ csi, a, letter });
         } else if (a <= 1) {
-            print("{};{}{}", .{ csi, b, letter });
+            print("{s};{}{s}", .{ csi, b, letter });
         } else {
-            print("{}{};{}{}", .{ csi, a, b, letter });
+            print("{s}{};{}{s}", .{ csi, a, b, letter });
         }
     }
     pub fn requestCursorPosition() void {
