@@ -138,7 +138,7 @@ const IndentedStream = struct {
         var self: IndentedStream = undefined;
         self.indent_depth = 0;
         self.file = fs.cwd().createFile(file_name, fs.File.CreateFlags{}) catch unreachable;
-        self.out = self.file.outStream();
+        self.out = self.file.writer();
         return self;
     }
     fn writeAll(self: *IndentedStream, bytes: []const u8) void {
@@ -147,7 +147,7 @@ const IndentedStream = struct {
     file: fs.File,
     indent_depth: u32,
     in_buffer: [200]u8,
-    out: std.io.OutStream(fs.File, std.os.WriteError, fs.File.write),
+    out: std.io.Writer(fs.File, std.os.WriteError, fs.File.write),
 };
 
 const fs = std.fs;
