@@ -89,7 +89,7 @@ const MakeHexFileStep = struct {
         }
         record[record.len - 1] = checksum;
         var line_buf: [1 + record_buf.len * 2 + 1]u8 = undefined;
-        _ = try file.write(try std.fmt.bufPrint(&line_buf, ":{X}\n", .{record}));
+        _ = try file.write(try std.fmt.bufPrint(&line_buf, ":{}\n", .{std.fmt.fmtSliceHexUpper(record)}));
     }
     const hex_record_len = 32;
 };
