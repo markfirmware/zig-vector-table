@@ -13,7 +13,8 @@ tasks:
       export PATH=./tools/zig:$PATH &&
       echo building ... &&
       zig build qemu
+
 vscode:
   extensions:
-    - tiehuis.zig@0.2.4:QyZ1jN51sNx8oPaymdmrmA==
-    - AugusteRame.zls-vscode@10.0.2:CFL/tN3FsgFOszqStAXs0Q==
+    - tiehuis.zig@0.2.5:Yj8BTORJw/zERdoSGPf+eQ==
+    - augusterame.zls-vscode@1.0.4:ZQxqRwcEt9rZuan0J+3BRQ==

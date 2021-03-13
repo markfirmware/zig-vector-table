@@ -1,4 +1,4 @@
 {
     "editor.autoSave": "on",
-    "zigLanguageClient.path": "tools/zls/zig-cache/bin/zls"
+    "zigLanguageClient.path": "/workspace/zig-vector-table/tools/zig/zig"
 }
