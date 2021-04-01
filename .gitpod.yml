@@ -10,9 +10,11 @@ tasks:
   - name: zig build qemu
     init: ./tools/update-tools.sh
     command:
-      export PATH=./tools/zig:$PATH &&
-      echo building ... &&
-      zig build qemu
+      export PATH=./tools/zig:$PATH
+      && echo "{\"zig_exe_path\":\"$(pwd)/tools/zig/zig\"}" > ~/.config/zls.json
+
+      echo building ...
+      && zig build qemu
 
 vscode:
   extensions:
