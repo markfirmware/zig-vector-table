@@ -94,6 +94,9 @@ pub fn linkSections(comptime options: Section) void {
         script.begin(".{s} :", .{options.name});
     }
     for (options.patterns) |p| {
+        if (options.start_symbol) {
+            script.line("_start = .;", .{});
+        }
         if (options.keep) {
             script.line("KEEP(*({s}))", .{p});
         } else {
@@ -158,6 +161,7 @@ const Section = struct {
     patterns: []const []const u8,
     prepare_by_copying_from: ?type = null,
     prepare_by_setting_to_zero: bool = false,
+    start_symbol: bool = false,
 };
 const std = @import("std");
 pub const generated_path = generated_path1 ++ generated_path2;

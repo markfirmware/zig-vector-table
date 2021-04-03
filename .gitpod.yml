@@ -1,5 +1,3 @@
-image: markformware/gitpod-workspace-qemu:latest
-
 ports:
   - port: 5900
     onOpen: ignore
@@ -10,10 +8,10 @@ tasks:
   - name: zig build qemu
     init: ./tools/update-tools.sh
     command:
-      export PATH=./tools/zig:$PATH
+      ./tools/update-qemu.sh
+      && export PATH=./tools/zig:$PATH
       && echo "{\"zig_exe_path\":\"$(pwd)/tools/zig/zig\"}" > ~/.config/zls.json
-
-      echo building ...
+      && echo zig build qemu ...
       && zig build qemu
 
 vscode:

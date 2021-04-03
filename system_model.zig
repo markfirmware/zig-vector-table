@@ -1,12 +1,12 @@
-const std = @import("std");
 const Linker = @import("linker.zig");
+const std = @import("std");
 pub const memory = struct {
     pub const flash = struct {
         pub const name = "flash";
         pub const size = 256 * 1024;
         pub const start = 0;
         pub fn linkSections() void {
-            Linker.linkSections(.{ .name = "system_exceptions_vector_table", .keep = true, .patterns = &[_][]const u8{".vector_table*"} });
+            Linker.linkSections(.{ .name = "system_exceptions_vector_table", .start_symbol = true, .keep = true, .patterns = &[_][]const u8{".vector_table*"} });
             Linker.linkSections(.{ .name = "cpu_instructions", .patterns = &[_][]const u8{".text*"} });
             Linker.linkSections(.{ .name = "read_only_data_kept_in_flash", .patterns = &[_][]const u8{".rodata*"} });
         }

@@ -11,15 +11,18 @@ fn reset() callconv(.C) noreturn {
     Uart.prepare();
     Timers[0].prepare();
     Terminal.reset();
+    Terminal.attribute(Terminal.background_green);
     Terminal.clearScreen();
     Terminal.move(1, 1);
     log("https://github.com/markfirmware/zig-vector-table is running on a microbit!", .{});
     var status_line_number: u32 = 2;
     if (Ficr.isQemu()) {
-        Terminal.attribute(35);
-        log("actually qemu -M microbit", .{});
-        Terminal.attribute(0);
+        Terminal.attribute(Terminal.foreground_magenta);
+        log("actually qemu -M microbit (zig build qemu)", .{});
+        Terminal.attribute(Terminal.foreground_black);
         status_line_number += 1;
+        Terminal.move(status_line_number, 1);
+        log("waiting for timer ...", .{});
     }
     var t = TimeKeeper.ofMilliseconds(1000);
     var i: u32 = 0;
@@ -330,6 +333,10 @@ pub const Terminal = struct {
         Uart.writeText(csi ++ "?25h");
     }
     const csi = "\x1b[";
+    const background_green = 42;
+    const background_yellow = 43;
+    const foreground_black = 30;
+    const foreground_magenta = 35;
     var height: u32 = 24;
     var width: u32 = 80;
 };

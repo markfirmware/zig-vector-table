@@ -6,6 +6,7 @@ MEMORY {
 
 SECTIONS {
     .system_exceptions_vector_table : {
+        _start = .;
         KEEP(*(.vector_table*))
     } > flash
     .cpu_instructions : {

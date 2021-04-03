@@ -15,4 +15,5 @@ git clone --quiet --recurse-submodules https://github.com/zigtools/zls
 cd zls
 set +e
 ../zig/zig build -Ddata_version=master
+
 exit 0
