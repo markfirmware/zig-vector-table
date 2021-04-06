@@ -7,13 +7,14 @@ MEMORY {
 SECTIONS {
     .system_exceptions_vector_table : {
         _start = .;
-        KEEP(*(.vector_table*))
+        KEEP(*(.vector_table))
     } > flash
     .cpu_instructions : {
-        *(.text*)
+        *(.text.*)
     } > flash
     .read_only_data_kept_in_flash : {
-        *(.rodata*)
+        *(.rodata)
+        *(.rodata.*)
     } > flash
 }
 
@@ -27,20 +28,21 @@ SECTIONS {
     } > flash
     .data_loaded_in_flash_that_program_must_copy_to_ram : AT(__data_loaded_in_flash_that_program_must_copy_to_ram_load_start) {
         __data_loaded_in_flash_that_program_must_copy_to_ram_start = .;
-        *(.data*)
-        __data_loaded_in_flash_that_program_must_copy_to_ram_end = .;
-    } > ram
-    .data_that_program_must_set_to_zero (NOLOAD) : {
-        __data_that_program_must_set_to_zero_start = .;
-        *(.bss*)
-        __data_that_program_must_set_to_zero_end = .;
-    } > ram
-}
-
-# .ARM.exidx must be discarded until "Provide -fno-unwind-tables" is resolved https://github.com/ziglang/zig/issues/5464
-
-SECTIONS {
-    /DISCARD/ : {
-        *(.ARM.exidx)
+        .data_loaded_in_flash_that_program_must_copy_to_ram : {
+            *(.data)
+            __data_loaded_in_flash_that_program_must_copy_to_ram_end = .;
+        } > ram
+        .data_that_program_must_set_to_zero (NOLOAD) : {
+            __data_that_program_must_set_to_zero_start = .;
+            *(.bss)
+            __data_that_program_must_set_to_zero_end = .;
+        } > ram
     }
-}
+    
+# .ARM.exidx must be discarded until "Provide -fno-unwind-tables" is resolved https://github.com/ziglang/zig/issues/5464
+    
+SECTIONS {
+        /DISCARD/ : {
+            *(.ARM.exidx)
+        }
+    }
