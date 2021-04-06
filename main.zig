@@ -1,5 +1,5 @@
 export var vector_table linksection(".vector_table") = packed struct {
-    initial_sp: u32 = model.memory.stack_bottom,
+    initial_sp: u32 = model.stack_bottom,
     reset: EntryPoint = reset,
     system_exceptions: [14]EntryPoint = [1]EntryPoint{exception} ** 14,
     interrupts: [model.number_of_peripherals]EntryPoint = [1]EntryPoint{exception} ** model.number_of_peripherals,
