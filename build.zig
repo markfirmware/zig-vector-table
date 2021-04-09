@@ -5,13 +5,12 @@ pub fn build(b: *std.build.Builder) !void {
         build_exe.emit_asm = true;
         build_exe.install();
         build_exe.setBuildMode(b.standardReleaseOptions());
-        build_exe.setLinkerScriptPath(Linker.script_file_name);
+        build_exe.setLinkerScriptPath("linker_script.ld");
         build_exe.setTarget(model.target);
         build_exe.link_function_sections = true;
         break :buildExeDetails 0;
     };
-    const format_source = b.addFmt(&[_][]const u8{ "build.zig", "linker.zig", "main.zig", "system_model.zig", "generated/generated_linker_files/generated_prepare_memory.zig" });
-    const generate_linker_files = Linker.addGenerateLinkerFilesStep(b, model);
+    const format_source = b.addFmt(&[_][]const u8{ "build.zig", "main.zig" });
     const install_raw = b.addInstallRaw(build_exe, "main.img");
     const make_hex_file = addCustomStep(b, MakeHexFileStep{ .input_name = "zig-cache/bin/main.img", .output_name = "main.hex" });
     const run_qemu = b.addSystemCommand(&[_][]const u8{
@@ -27,9 +26,7 @@ pub fn build(b: *std.build.Builder) !void {
     });
 
     _ = declareDependencies: {
-        format_source.step.dependOn(&generate_linker_files.step);
         build_exe.step.dependOn(&format_source.step);
-        build_exe.step.dependOn(&generate_linker_files.step);
         install_raw.step.dependOn(&build_exe.step);
         make_hex_file.step.dependOn(&install_raw.step);
         run_qemu.step.dependOn(&install_raw.step);
@@ -56,7 +53,7 @@ const MakeHexFileStep = struct {
         const hex = try cwd.createFile(self.output_name, fs.File.CreateFlags{});
         defer hex.close();
         var offset: usize = 0;
-        var read_buf: [model.flash.size]u8 = undefined;
+        var read_buf: [model.memory.flash.size]u8 = undefined;
         while (true) {
             var n = try image.read(&read_buf);
             if (n == 0) {
@@ -102,6 +99,5 @@ pub fn addCustomStep(self: *std.build.Builder, customStep: anytype) *@TypeOf(cus
 }
 
 const fs = std.fs;
-const Linker = @import("linker.zig");
 const model = @import("system_model.zig");
 const std = @import("std");

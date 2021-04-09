@@ -1,5 +1,5 @@
 export var vector_table linksection(".vector_table") = packed struct {
-    initial_sp: u32 = model.stack_bottom,
+    initial_sp: u32 = model.memory.ram.stack_bottom,
     reset: EntryPoint = reset,
     system_exceptions: [14]EntryPoint = [1]EntryPoint{exception} ** 14,
     interrupts: [model.number_of_peripherals]EntryPoint = [1]EntryPoint{exception} ** model.number_of_peripherals,
@@ -7,7 +7,7 @@ export var vector_table linksection(".vector_table") = packed struct {
 }{};
 
 fn reset() callconv(.C) noreturn {
-    @import("generated/generated_linker_files/generated_prepare_memory.zig").prepareMemory();
+    model.memory.ram.prepare();
     Uart.prepare();
     Timers[0].prepare();
     Terminal.reset();
@@ -36,16 +36,28 @@ fn reset() callconv(.C) noreturn {
     }
 }
 
-pub fn panic(message: []const u8, trace: ?*std.builtin.StackTrace) noreturn {
-    panicf("panic(): {s}", .{message});
-}
-
 fn exception() callconv(.C) noreturn {
     const ipsr_interrupt_program_status_register = asm ("mrs %[ipsr_interrupt_program_status_register], ipsr"
         : [ipsr_interrupt_program_status_register] "=r" (-> usize)
     );
     const isr_number = ipsr_interrupt_program_status_register & 0xff;
     panicf("arm exception ipsr.isr_number {}", .{isr_number});
+}
+
+pub fn panic(message: []const u8, trace: ?*std.builtin.StackTrace) noreturn {
+    panicf("panic(): {s}", .{message});
+}
+
+fn hangf(comptime fmt: []const u8, args: anytype) noreturn {
+    log(fmt, args);
+    Uart.drainTx();
+    while (true) {}
+}
+
+fn panicf(comptime fmt: []const u8, args: anytype) noreturn {
+    @setCold(true);
+    log("\npanicf(): " ++ fmt, args);
+    hangf("panic completed", .{});
 }
 
 const Ficr = struct {
@@ -539,18 +551,6 @@ const Uart = struct {
         return @truncate(u8, registers.rxd.read());
     }
 };
-
-fn hangf(comptime fmt: []const u8, args: anytype) noreturn {
-    log(fmt, args);
-    Uart.drainTx();
-    while (true) {}
-}
-
-fn panicf(comptime fmt: []const u8, args: anytype) noreturn {
-    @setCold(true);
-    log("\npanicf(): " ++ fmt, args);
-    hangf("panic completed", .{});
-}
 
 const assert = std.debug.assert;
 const log = Uart.log;

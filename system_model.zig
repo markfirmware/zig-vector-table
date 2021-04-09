@@ -1,31 +1,28 @@
-pub const compiler = struct {
-    pub const bss: InputSections = .{ .names = &[_][]const u8{".bss"} };
-    pub const data: InputSections = .{ .names = &[_][]const u8{".data"} };
-    pub const rodata: InputSections = .{ .names = &[_][]const u8{ ".rodata", ".rodata.*" } };
-    pub const text: InputSections = .{ .names = &[_][]const u8{".text.*"} };
-    pub const vector_table: InputSections = .{ .names = &[_][]const u8{".vector_table"} };
+pub const memory = struct {
+    pub const flash = struct {
+        pub const size = 256 * 1024;
+        pub const start = 0;
+    };
+    pub const ram = struct {
+        pub const size = 16 * 1024;
+        pub const start = 0x20000000;
+        pub const stack_bottom = start + size;
+        extern var _ram_bss_start: u8;
+        extern var _ram_bss_end: u8;
+        extern var _ram_data_start: u8;
+        extern var _ram_data_end: u8;
+        extern var _ram_data_initial_values: u8;
+        pub fn prepare() void {
+            const ram_bss = asSlice(&_ram_bss_start, &_ram_data_end);
+            std.mem.set(u8, ram_bss, 0);
+            const ram_data = asSlice(&_ram_data_start, &_ram_data_end);
+            std.mem.copy(u8, ram_data, @ptrCast([*]u8, &_ram_data_initial_values)[0..ram_data.len]);
+        }
+        fn asSlice(start_ptr: *u8, end_ptr: *u8) []u8 {
+            return @ptrCast([*]u8, start_ptr)[0 .. @ptrToInt(end_ptr) - @ptrToInt(start_ptr)];
+        }
+    };
 };
-pub const memories = [_]Memory{ flash, ram };
-pub const flash = Memory{
-    .name = "flash",
-    .size = 256 * 1024,
-    .start = 0,
-    .sections = &[_]OutputSection{
-        .{ .name = "system_exceptions_vector_table", .start_symbol = true, .keep = true, .input = compiler.vector_table },
-        .{ .name = "cpu_instructions", .input = compiler.text },
-        .{ .name = "read_only_data_kept_in_flash", .input = compiler.rodata },
-    },
-};
-pub const ram = Memory{
-    .name = "ram",
-    .size = 16 * 1024,
-    .start = 0x20000000,
-    .sections = &[_]OutputSection{
-        .{ .name = "data_loaded_in_flash_that_program_must_copy_to_ram", .prepare_by_copying_from = flash, .input = compiler.data },
-        .{ .name = "data_that_program_must_set_to_zero", .prepare_by_setting_to_zero = true, .input = compiler.bss },
-    },
-};
-pub const stack_bottom = ram.start + ram.size;
 pub const number_of_peripherals = 32;
 pub const options = struct {
     pub const low_frequency_crystal = false;
@@ -42,8 +39,4 @@ pub const target = std.zig.CrossTarget{
     .cpu_model = std.zig.CrossTarget.CpuModel{ .explicit = &std.Target.arm.cpu.cortex_m0 },
 };
 
-const InputSections = Linker.InputSections;
-const Linker = @import("linker.zig");
-const Memory = Linker.Memory;
-const OutputSection = Linker.OutputSection;
 const std = @import("std");
