@@ -73,9 +73,9 @@ const Ficr = struct {
 const Gpio = struct {
     const p = Peripheral.at(0x50000000);
     pub const registers = struct {
-        pub const out = p.typedRegistersWriteSetClear(0x504, 0x508, 0x50c, Pins);
+        pub const out = p.typedRegisterGroup(0x504, 0x508, 0x50c, Pins);
         pub const in = p.typedRegister(0x510, Pins);
-        pub const direction = p.typedRegistersWriteSetClear(0x514, 0x518, 0x51c, Pins);
+        pub const direction = p.typedRegisterGroup(0x514, 0x518, 0x51c, Pins);
         pub const config = p.typedRegisterArray(32, 0x700, Config);
         pub const Config = packed struct {
             output_connected: u1,
@@ -117,22 +117,25 @@ const Peripheral = struct {
             fn register(offset: u32) type {
                 return typedRegister(offset, u32);
             }
-            fn registersWriteSetClear(write_offset: u32, set_offset: u32, clear_offset: u32) type {
-                return typedRegistersWriteSetClear(write_offset, set_offset, clear_offset, u32);
+            fn registerGroup(offsets: RegisterGroup) type {
+                return typedRegisterGroup(offsets, u32);
             }
-            fn typedRegistersWriteSetClear(write_offset: u32, set_offset: u32, clear_offset: u32, comptime T: type) type {
+            fn typedRegisterGroup(offsets: RegisterGroup, comptime T: type) type {
+                assert(offsets.read == offsets.write);
+                assert(offsets.set == offsets.write + 4);
+                assert(offsets.clear == offsets.set + 4);
                 return struct {
                     pub fn read() T {
-                        return typedRegister(write_offset, T).read();
+                        return typedRegister(offsets.read, T).read();
                     }
                     pub fn write(x: T) void {
-                        typedRegister(write_offset, T).write(x);
+                        typedRegister(offsets.write, T).write(x);
                     }
                     pub fn set(x: T) void {
-                        typedRegister(set_offset, T).write(x);
+                        typedRegister(offsets.set, T).write(x);
                     }
                     pub fn clear(x: T) void {
-                        typedRegister(clear_offset, T).write(x);
+                        typedRegister(offsets.clear, T).write(x);
                     }
                 };
             }
@@ -185,16 +188,22 @@ const Peripheral = struct {
             }
             const Event = struct {
                 address: u32,
-                pub fn clear(self: Event) void {
+                pub fn clearEvent(self: Event) void {
                     mmio(self.address, u32).* = 0;
                 }
-                pub fn occurred(self: Event) bool {
+                pub fn eventOccurred(self: Event) bool {
                     return mmio(self.address, u32).* == 1;
                 }
             };
+            const RegisterGroup = struct {
+                read: u32,
+                write: u32,
+                set: u32,
+                clear: u32,
+            };
             const Task = struct {
                 address: u32,
-                pub fn do(self: Task) void {
+                pub fn doTask(self: Task) void {
                     mmio(self.address, u32).* = 1;
                 }
             };
@@ -238,7 +247,7 @@ pub const Pins = packed struct {
     pub fn config(self: Pins, the_config: Gpio.registers.Config) void {
         var i: u32 = 0;
         while (i < self.width()) : (i += 1) {
-            Gpio.registers.config[self.position(i)].write(the_config);
+            Gpio.registers.config[self.bitPosition(i)].write(the_config);
         }
     }
     pub fn connectI2c(self: Pins) void {
@@ -267,13 +276,13 @@ pub const Pins = packed struct {
         return @bitCast(Pins, self.mask() | other.mask());
     }
     pub fn outRead(self: Pins) u32 {
-        return (@bitCast(u32, Gpio.registers.out.read()) & self.mask()) >> self.position(0);
+        return (@bitCast(u32, Gpio.registers.out.read()) & self.mask()) >> self.bitPosition(0);
     }
-    fn position(self: Pins, i: u32) u5 {
+    fn bitPosition(self: Pins, i: u32) u5 {
         return @truncate(u5, @ctz(u32, self.mask()) + i);
     }
     pub fn read(self: Pins) u32 {
-        return (@bitCast(u32, Gpio.registers.in.read()) & self.mask()) >> self.position(0);
+        return (@bitCast(u32, Gpio.registers.in.read()) & self.mask()) >> self.bitPosition(0);
     }
     pub fn set(self: Pins) void {
         Gpio.registers.out.set(self);
@@ -283,7 +292,7 @@ pub const Pins = packed struct {
     }
     pub fn write(self: Pins, x: u32) void {
         var new = Gpio.registers.out.read().mask() & ~self.mask();
-        new |= (x << self.position(0)) & self.mask();
+        new |= (x << self.bitPosition(0)) & self.mask();
         Gpio.registers.out.write(@bitCast(Pins, new));
     }
     pub fn writeWholeMask(self: Pins) void {
@@ -359,7 +368,7 @@ pub const TimeKeeper = struct {
     start_time: u32,
 
     fn capture(self: *TimeKeeper) u32 {
-        Timers[0].tasks.capture[0].do();
+        Timers[0].tasks.capture[0].doTask();
         return Timers[0].registers.capture_compare[0].read();
     }
     fn elapsed(self: *TimeKeeper) u32 {
@@ -425,14 +434,14 @@ fn Timer(base: u32) type {
             pub const capture_compare = p.registerArray(4, 0x540);
         };
         pub fn captureAndRead() u32 {
-            tasks.capture[0].do();
+            tasks.capture[0].doTask();
             return registers.capture_compare[0].read();
         }
         pub fn prepare() void {
             registers.mode.write(0x0);
             registers.bit_mode.write(if (base == 0x40008000) @as(u32, 0x3) else 0x0);
             registers.prescaler.write(if (base == 0x40008000) @as(u32, 4) else 9);
-            tasks.start.do();
+            tasks.start.doTask();
             const now = captureAndRead();
             var i: u32 = 0;
             while (captureAndRead() == now) : (i += 1) {
@@ -461,7 +470,7 @@ const Uart = struct {
         pub const rx_timeout = p.event(0x144);
     };
     pub const registers = struct {
-        pub const interrupts = p.registersWriteSetClear(0x300, 0x304, 0x308);
+        pub const interrupts = p.registerGroup(.{ .read = 0x300, .write = 0x300, .set = 0x304, .clear = 0x308 });
         pub const error_source = p.register(0x480);
         pub const enable = p.register(0x500);
         pub const pin_select_rts = p.register(0x508);
@@ -494,21 +503,21 @@ const Uart = struct {
     }
     pub fn prepare() void {
         Pins.of.target_txd.connectOutput();
-        registers.pin_select_rxd.write(Pins.of.target_rxd.position(0));
-        registers.pin_select_txd.write(Pins.of.target_txd.position(0));
+        registers.pin_select_rxd.write(Pins.of.target_rxd.bitPosition(0));
+        registers.pin_select_txd.write(Pins.of.target_txd.bitPosition(0));
         registers.enable.write(0x04);
-        tasks.start_rx.do();
-        tasks.start_tx.do();
+        tasks.start_rx.doTask();
+        tasks.start_tx.doTask();
     }
     pub fn isReadByteReady() bool {
-        return events.rx_ready.occurred();
+        return events.rx_ready.eventOccurred();
     }
     pub fn print(comptime fmt: []const u8, args: anytype) void {
         std.fmt.format(Instance.writer, fmt, args) catch |_| {};
     }
     pub fn loadTxd() void {
-        if (tx_queue_read != tx_queue_write and (!tx_busy or events.tx_ready.occurred())) {
-            events.tx_ready.clear();
+        if (tx_queue_read != tx_queue_write and (!tx_busy or events.tx_ready.eventOccurred())) {
+            events.tx_ready.clearEvent();
             registers.txd.write(tx_queue[tx_queue_read]);
             tx_queue_read = (tx_queue_read + 1) % tx_queue.len;
             tx_busy = true;
@@ -547,7 +556,7 @@ const Uart = struct {
         loadTxd();
     }
     pub fn readByte() u8 {
-        events.rx_ready.clear();
+        events.rx_ready.clearEvent();
         return @truncate(u8, registers.rxd.read());
     }
 };
