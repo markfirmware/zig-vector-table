@@ -1,3 +1,6 @@
+image:
+  file: .gitpod.dockerfile
+
 ports:
   - port: 5900
     onOpen: ignore
@@ -9,7 +12,6 @@ tasks:
     init: ./tools/update-tools.sh
     command:
       export PATH=./tools/zig:$PATH
-      && ./tools/update-qemu.sh
       && ln -s $(pwd)/tools /workspace/tools
       && ln -s $(pwd)/zls.json ~/.config/zls.json
       && echo zig build qemu ...
