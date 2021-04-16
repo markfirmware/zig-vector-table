@@ -14,6 +14,7 @@ tasks:
     command:
       export PATH=./tools/zig:$PATH
       && ln -s $(pwd)/zls.json ~/.config/zls.json
+      && ./tools/update-qemu.sh
       && echo zig build qemu ...
       && zig build qemu
 
