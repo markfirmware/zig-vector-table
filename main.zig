@@ -19,8 +19,10 @@ fn reset() callconv(.C) noreturn {
     if (Ficr.isQemu()) {
         Terminal.attribute(Terminal.foreground_magenta);
         log("actually qemu -M microbit (zig build qemu)", .{});
+        log("the emulated timer can be slower than a real one", .{});
+        log(" and also slightly erratic (due to running on a shared host)", .{});
         Terminal.attribute(Terminal.foreground_black);
-        status_line_number += 1;
+        status_line_number += 3;
         Terminal.move(status_line_number, 1);
         log("waiting for timer ...", .{});
     }
