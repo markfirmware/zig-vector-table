@@ -9,11 +9,13 @@ ports:
 
 tasks:
   - name: zig build qemu
-    init: ./tools/update-tools.sh
-    command:
-      export PATH=./tools/zig:$PATH
+    init:
+      ./tools/update-tools.sh
       && ln -s $(pwd)/tools /workspace/tools
       && ln -s $(pwd)/zls.json ~/.config/zls.json
+      && zig build
+    command:
+      export PATH=./tools/zig:$PATH
       && echo zig build qemu ...
       && zig build qemu
 
