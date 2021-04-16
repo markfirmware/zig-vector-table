@@ -13,7 +13,6 @@ tasks:
       && zig build
     command:
       export PATH=./tools/zig:$PATH
-      && time ./tools/update-qemu.sh >& install-qemu.log
       && ln -s $(pwd)/zls.json ~/.config/zls.json
       && echo zig build qemu ...
       && zig build qemu
