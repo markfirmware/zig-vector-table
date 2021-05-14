@@ -12,11 +12,11 @@ pub fn build(b: *std.build.Builder) !void {
     };
     const format_source = b.addFmt(&[_][]const u8{ "build.zig", "main.zig" });
     const install_raw = b.addInstallRaw(build_exe, "main.img");
-    const make_hex_file = addCustomStep(b, MakeHexFileStep{ .input_name = "zig-cache/bin/main.img", .output_name = "main.hex" });
+    const make_hex_file = addCustomStep(b, MakeHexFileStep{ .input_name = "zig-out/bin/main.img", .output_name = "main.hex" });
     const run_qemu = b.addSystemCommand(&[_][]const u8{
         "qemu-system-arm",
         "-kernel",
-        "zig-cache/bin/main.img",
+        "zig-out/bin/main.img",
         "-M",
         model.qemu.machine,
         "-serial",
