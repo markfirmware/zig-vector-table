@@ -5,7 +5,7 @@ pub fn build(b: *std.build.Builder) !void {
         build_exe.emit_asm = true;
         build_exe.install();
         build_exe.setBuildMode(b.standardReleaseOptions());
-        build_exe.setLinkerScriptPath("linker_script.ld");
+        build_exe.setLinkerScriptPath(std.build.FileSource.relative("linker_script.ld"));
         build_exe.setTarget(model.target);
         build_exe.link_function_sections = true;
         break :buildExeDetails 0;
@@ -94,7 +94,7 @@ const MakeHexFileStep = struct {
 pub fn addCustomStep(self: *std.build.Builder, customStep: anytype) *@TypeOf(customStep) {
     var allocated = self.allocator.create(@TypeOf(customStep)) catch unreachable;
     allocated.* = customStep;
-    allocated.*.step = std.build.Step.init(.Custom, @typeName(@TypeOf(customStep)), self.allocator, @TypeOf(customStep).make);
+    allocated.*.step = std.build.Step.init(.custom, @typeName(@TypeOf(customStep)), self.allocator, @TypeOf(customStep).make);
     return allocated;
 }
 
