@@ -47,6 +47,7 @@ fn exception() callconv(.C) noreturn {
 }
 
 pub fn panic(message: []const u8, trace: ?*std.builtin.StackTrace) noreturn {
+    _ = trace;
     panicf("panic(): {s}", .{message});
 }
 
@@ -162,8 +163,12 @@ const Peripheral = struct {
                 return addressedArray(length, offset, delta, Register(u32));
             }
             fn shorts(comptime EventsType: type, comptime TasksType: type, event2: EventsType.enums, task2: TasksType.enums) type {
+                _ = event2;
+                _ = task2;
                 return struct {
-                    fn enable(pairs: []struct { event: EventsType.enums, task: TasksType.enums }) void {}
+                    fn enable(pairs: []struct { event: EventsType.enums, task: TasksType.enums }) void {
+                        _ = pairs;
+                    }
                 };
             }
             fn task(offset: u32) Task {
@@ -370,6 +375,7 @@ pub const TimeKeeper = struct {
     start_time: u32,
 
     fn capture(self: *TimeKeeper) u32 {
+        _ = self;
         Timers[0].tasks.capture[0].doTask();
         return Timers[0].registers.capture_compare[0].read();
     }
@@ -485,6 +491,7 @@ const Uart = struct {
     };
     const Instance = struct {
         pub fn write(context: *Instance, buffer: []const u8) Error!usize {
+            _ = context;
             Uart.writeText(buffer);
             return buffer.len;
         }
@@ -515,7 +522,7 @@ const Uart = struct {
         return events.rx_ready.eventOccurred();
     }
     pub fn print(comptime fmt: []const u8, args: anytype) void {
-        std.fmt.format(Instance.writer, fmt, args) catch |_| {};
+        std.fmt.format(Instance.writer, fmt, args) catch {};
     }
     pub fn loadTxd() void {
         if (tx_queue_read != tx_queue_write and (!tx_busy or events.tx_ready.eventOccurred())) {
