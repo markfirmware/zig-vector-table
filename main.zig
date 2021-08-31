@@ -365,6 +365,7 @@ pub const Terminal = struct {
     const background_yellow = 43;
     const foreground_black = 30;
     const foreground_magenta = 35;
+    const print = Uart.print;
     var height: u32 = 24;
     var width: u32 = 80;
 };
@@ -573,5 +574,4 @@ const Uart = struct {
 const assert = std.debug.assert;
 const log = Uart.log;
 const model = @import("system_model.zig");
-const print = Uart.print;
 const std = @import("std");
