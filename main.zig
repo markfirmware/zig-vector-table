@@ -40,7 +40,7 @@ fn reset() callconv(.C) noreturn {
 
 fn exception() callconv(.C) noreturn {
     const ipsr_interrupt_program_status_register = asm ("mrs %[ipsr_interrupt_program_status_register], ipsr"
-        : [ipsr_interrupt_program_status_register] "=r" (-> usize)
+        : [ipsr_interrupt_program_status_register] "=r" (-> usize),
     );
     const isr_number = ipsr_interrupt_program_status_register & 0xff;
     panicf("arm exception ipsr.isr_number {}", .{isr_number});

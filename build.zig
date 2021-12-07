@@ -2,7 +2,7 @@ pub fn build(b: *std.build.Builder) !void {
     const display_option = b.option(bool, "display", "graphics display for qemu") orelse false;
     const build_exe = b.addExecutable("main", "main.zig");
     _ = buildExeDetails: {
-        build_exe.emit_asm = true;
+        build_exe.emit_asm = .emit;
         build_exe.install();
         build_exe.setBuildMode(b.standardReleaseOptions());
         build_exe.setLinkerScriptPath(std.build.FileSource.relative("linker_script.ld"));
@@ -11,7 +11,7 @@ pub fn build(b: *std.build.Builder) !void {
         break :buildExeDetails 0;
     };
     const format_source = b.addFmt(&[_][]const u8{ "build.zig", "main.zig" });
-    const install_raw = b.addInstallRaw(build_exe, "main.img");
+    const install_raw = b.addInstallRaw(build_exe, "main.img", std.build.InstallRawStep.CreateOptions{});
     const make_hex_file = addCustomStep(b, MakeHexFileStep{ .input_name = "zig-out/bin/main.img", .output_name = "main.hex" });
     const run_qemu = b.addSystemCommand(&[_][]const u8{
         "qemu-system-arm",
