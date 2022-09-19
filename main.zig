@@ -286,7 +286,7 @@ pub const Pins = packed struct {
         return (@bitCast(u32, Gpio.registers.out.read()) & self.mask()) >> self.bitPosition(0);
     }
     fn bitPosition(self: Pins, i: u32) u5 {
-        return @truncate(@ctz(self.mask()) + i);
+        return @truncate(u5, @ctz(self.mask()) + i);
     }
     pub fn read(self: Pins) u32 {
         return (@bitCast(u32, Gpio.registers.in.read()) & self.mask()) >> self.bitPosition(0);
