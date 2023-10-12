@@ -1,12 +1,21 @@
-export var vector_table linksection(".vector_table") = packed struct {
+export var vector_table linksection(".vector_table") = extern struct {
     initial_sp: u32 = model.memory.ram.stack_bottom,
     reset: EntryPoint = reset,
     system_exceptions: [14]EntryPoint = [1]EntryPoint{exception} ** 14,
     interrupts: [model.number_of_peripherals]EntryPoint = [1]EntryPoint{exception} ** model.number_of_peripherals,
-    const EntryPoint = fn () callconv(.C) noreturn;
+    const EntryPoint = *const fn () callconv(.C) noreturn;
 }{};
 
 fn reset() callconv(.C) noreturn {
+    model.memory.ram.prepare();
+    Uart.prepare();
+    log("https://github.com/markfirmware/zig-vector-table is running on a microbit!", .{});
+    while (true) {
+        Uart.update();
+    }
+}
+
+fn reset2() callconv(.C) noreturn {
     model.memory.ram.prepare();
     Uart.prepare();
     Timers[0].prepare();
@@ -46,8 +55,9 @@ fn exception() callconv(.C) noreturn {
     panicf("arm exception ipsr.isr_number {}", .{isr_number});
 }
 
-pub fn panic(message: []const u8, trace: ?*std.builtin.StackTrace) noreturn {
+pub fn panic(message: []const u8, trace: ?*std.builtin.StackTrace, status_code: ?usize) noreturn {
     _ = trace;
+    _ = status_code;
     panicf("panic(): {s}", .{message});
 }
 
@@ -70,7 +80,7 @@ const Ficr = struct {
     pub fn isQemu() bool {
         return deviceId() == 0x1234567800000003;
     }
-    pub const contents = @intToPtr(*[64]u32, 0x10000000);
+    pub const contents = @as(*[64]u32, @ptrFromInt(0x10000000));
 };
 
 const Gpio = struct {
@@ -94,19 +104,19 @@ const Gpio = struct {
 };
 
 const Peripheral = struct {
-    fn at(base: u32) type {
+    fn at(comptime base: u32) type {
         assert(base == 0xe000e000 or base == 0x50000000 or base & 0xfffe0fff == 0x40000000);
         return struct {
             const peripheral_id = base >> 12 & 0x1f;
             fn mmio(address: u32, comptime T: type) *align(4) volatile T {
-                return @intToPtr(*align(4) volatile T, address);
+                return @as(*align(4) volatile T, @ptrFromInt(address));
             }
             fn event(offset: u32) Event {
                 var e: Event = undefined;
                 e.address = base + offset;
                 return e;
             }
-            fn typedRegister(offset: u32, comptime the_layout: type) type {
+            fn typedRegister(comptime offset: u32, comptime the_layout: type) type {
                 return struct {
                     pub const layout = the_layout;
                     pub noinline fn read() layout {
@@ -117,7 +127,7 @@ const Peripheral = struct {
                     }
                 };
             }
-            fn register(offset: u32) type {
+            fn register(comptime offset: u32) type {
                 return typedRegister(offset, u32);
             }
             fn registerGroup(offsets: RegisterGroup) type {
@@ -277,19 +287,19 @@ pub const Pins = packed struct {
     }
     pub fn mask(self: Pins) u32 {
         assert(@sizeOf(Pins) == 4);
-        return @bitCast(u32, self);
+        return @bitCast(self);
     }
     pub fn maskUnion(self: Pins, other: Pins) Pins {
-        return @bitCast(Pins, self.mask() | other.mask());
+        return @bitCast(self.mask() | other.mask());
     }
     pub fn outRead(self: Pins) u32 {
-        return (@bitCast(u32, Gpio.registers.out.read()) & self.mask()) >> self.bitPosition(0);
+        return (@as(u32, @bitCast(Gpio.registers.out.read())) & self.mask()) >> self.bitPosition(0);
     }
     fn bitPosition(self: Pins, i: u32) u5 {
-        return @truncate(u5, @ctz(self.mask()) + i);
+        return @truncate(@ctz(self.mask()) + i);
     }
     pub fn read(self: Pins) u32 {
-        return (@bitCast(u32, Gpio.registers.in.read()) & self.mask()) >> self.bitPosition(0);
+        return (@as(u32, @bitCast(Gpio.registers.in.read())) & self.mask()) >> self.bitPosition(0);
     }
     pub fn set(self: Pins) void {
         Gpio.registers.out.set(self);
@@ -300,7 +310,7 @@ pub const Pins = packed struct {
     pub fn write(self: Pins, x: u32) void {
         var new = Gpio.registers.out.read().mask() & ~self.mask();
         new |= (x << self.bitPosition(0)) & self.mask();
-        Gpio.registers.out.write(@bitCast(Pins, new));
+        Gpio.registers.out.write(@bitCast(new));
     }
     pub fn writeWholeMask(self: Pins) void {
         Gpio.registers.out.write(self);
@@ -420,7 +430,7 @@ pub const TimeKeeper = struct {
 
 pub const Timers = [_]@TypeOf(Timer(0x40008000)){ Timer(0x40008000), Timer(0x40009000), Timer(0x4000a000) };
 
-fn Timer(base: u32) type {
+fn Timer(comptime base: u32) type {
     return struct {
         const max_width = if (base == 0x40008000) @as(u32, 32) else 16;
         const p = Peripheral.at(base);
@@ -505,7 +515,7 @@ const Uart = struct {
     var tx_queue: [3]u8 = undefined;
     var tx_queue_read: usize = undefined;
     var tx_queue_write: usize = undefined;
-    var updater: ?fn () void = undefined;
+    var updater: ?*fn () void = null;
     pub fn drainTx() void {
         while (tx_queue_read != tx_queue_write) {
             loadTxd();
@@ -531,9 +541,7 @@ const Uart = struct {
             registers.txd.write(tx_queue[tx_queue_read]);
             tx_queue_read = (tx_queue_read + 1) % tx_queue.len;
             tx_busy = true;
-            if (updater) |an_updater| {
-                an_updater();
-            }
+            updater.?();
         }
     }
     pub fn log(comptime fmt: []const u8, args: anytype) void {
@@ -567,7 +575,7 @@ const Uart = struct {
     }
     pub fn readByte() u8 {
         events.rx_ready.clearEvent();
-        return @truncate(u8, registers.rxd.read());
+        return @truncate(registers.rxd.read());
     }
 };
 
