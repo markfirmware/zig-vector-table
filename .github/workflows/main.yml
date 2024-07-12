@@ -19,4 +19,4 @@ jobs:
     - name: build
       run: |
         export PATH=./tools/zig:$PATH
-        .github/workflows/build.sh
+        ./build.sh
