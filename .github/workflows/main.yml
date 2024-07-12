@@ -20,3 +20,4 @@ jobs:
       run: |
         export PATH=./tools/zig:$PATH
         ./build.sh
+        ls -lt main.hex
