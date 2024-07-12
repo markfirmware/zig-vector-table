@@ -11,15 +11,17 @@ pub const memory = struct {
         extern var _ram_bss_end: u8;
         extern var _ram_data_start: u8;
         extern var _ram_data_end: u8;
-        extern var _ram_data_initial_values: u8;
+        extern var _address_in_flash_of_initial_ram_data: u8;
         pub fn prepare() void {
-            const ram_bss = asSlice(&_ram_bss_start, &_ram_data_end);
-            @memset(ram_bss, 0);
+            const ram_bss = asSlice(&_ram_bss_start, &_ram_bss_end);
             const ram_data = asSlice(&_ram_data_start, &_ram_data_end);
-            @memcpy(ram_data, @as([*]u8, @ptrCast(&_ram_data_initial_values))[0..ram_data.len]);
+            const initial_ram_data = @as([*]u8, @ptrCast(&_address_in_flash_of_initial_ram_data))[0..ram_data.len];
+            @memset(ram_bss, 0);
+            @memcpy(ram_data, initial_ram_data);
         }
         fn asSlice(start_ptr: *u8, end_ptr: *u8) []u8 {
-            return @as([*]u8, @ptrCast(start_ptr))[0 .. @as(usize, @intFromPtr(end_ptr)) - @as(usize, @intFromPtr(start_ptr))];
+            const len: u32 = @intFromPtr(end_ptr) - @intFromPtr(start_ptr);
+            return @as([*]u8, @ptrCast(start_ptr))[0..len];
         }
     };
 };

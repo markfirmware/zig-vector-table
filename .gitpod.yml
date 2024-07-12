@@ -10,14 +10,14 @@ tasks:
       ./tools/update-tools.sh
       && ln -s $(pwd)/tools /workspace/tools
       && export PATH=./tools/zig:$PATH
-      && zig build
+      && ./build.sh
     command:
       export PATH=./tools/zig:$PATH
       && ./tools/update-qemu.sh
       && mkdir -p ~/.config
       && ln -s $(pwd)/zls.json ~/.config/zls.json
       && echo zig build qemu ...
-      && zig build qemu
+      && ./qemu.sh
 
 vscode:
   extensions:

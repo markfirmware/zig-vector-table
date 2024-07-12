@@ -1,19 +1,15 @@
 #!/bin/bash
-set -e
+set -ex
+
+ZIGVER=0.13.0
 
 cd tools/
-rm -rf zig/ zls/
+rm -rf zig/
 
-ZIG=$(wget --quiet --output-document=- https://ziglang.org/download/index.json | jq --raw-output '.master."x86_64-linux".tarball')
-echo installing latest zig
+echo installing zig $ZIGVER
+ZIG=$(wget --quiet --output-document=- https://ziglang.org/download/index.json | jq --raw-output ".\"$ZIGVER\".\"x86_64-linux\"".tarball)
 wget --quiet --output-document=- $ZIG | tar Jx
 mv zig-linux-x86_64-* zig
 echo zig version $(./zig/zig version)
-
-echo installing latest zls - zig language server
-git clone --quiet --recurse-submodules https://github.com/zigtools/zls
-cd zls
-set +e
-../zig/zig build -Ddata_version=master
 
 exit 0

@@ -3,15 +3,18 @@ MEMORY {
     ram : ORIGIN = 0x20000000, LENGTH = 0x4000
 }
 SECTIONS {
+    /DISCARD/ : {
+        *(.ARM.exidx)
+    }
     .flash : {
         _start = .;
         KEEP(*(.vector_table))
         *(.text.*)
         *(.rodata)
         *(.rodata.*)
-        _ram_data_initial_values = .;
+        _address_in_flash_of_initial_ram_data = .;
     } > flash
-    .ram_data : AT(_ram_data_initial_values) {
+    .ram_data : AT(_address_in_flash_of_initial_ram_data) {
         _ram_data_start = .;
         *(.data)
         _ram_data_end = .;
@@ -21,8 +24,4 @@ SECTIONS {
         *(.bss)
         _ram_bss_end = .;
     } > ram
-    # .ARM.exidx must be discarded until "Provide -fno-unwind-tables" is resolved https://github.com/ziglang/zig/issues/5464
-    /DISCARD/ : {
-        *(.ARM.exidx)
-    }
 }
