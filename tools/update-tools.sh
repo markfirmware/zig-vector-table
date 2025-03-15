@@ -1,7 +1,7 @@
 #!/bin/bash
 set -ex
 
-ZIGVER=0.13.0
+ZIGVER=master
 
 cd tools/
 rm -rf zig/
